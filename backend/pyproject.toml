@@ -1,0 +1,40 @@
+[project]
+name = "geography-quiz-backend"
+version = "0.1.0"
+description = "Backend API for Geography Quiz game"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "sqlalchemy>=2.0.25",
+    "pydantic>=2.5.3",
+    "pydantic-settings>=2.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.4",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.3",
+    "httpx>=0.26.0",
+    "ruff>=0.1.13",
+    "black>=24.1.0",
+    "pyright>=1.1.347",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+include = ["src"]
+exclude = ["**/__pycache__", "**/node_modules"]
