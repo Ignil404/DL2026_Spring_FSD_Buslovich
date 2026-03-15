@@ -1,6 +1,7 @@
 /**
  * GameHeader component - displays game progress bar
  * Shows question number, current score, and player name
+ * Responsive design with mobile-first approach
  */
 interface GameHeaderProps {
   currentQuestion: number;
@@ -24,7 +25,7 @@ export default function GameHeader({
         width: '100%',
         backgroundColor: '#1a1a1a',
         color: '#fff',
-        padding: '16px 24px',
+        padding: '12px 16px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
       }}
     >
@@ -34,51 +35,51 @@ export default function GameHeader({
         height: '4px',
         backgroundColor: '#333',
         borderRadius: '2px',
-        marginBottom: '16px',
+        marginBottom: '12px',
         overflow: 'hidden'
       }}>
         <div style={{
           width: `${progressPercentage}%`,
           height: '100%',
-          backgroundColor: 'linear-gradient(90deg, #4caf50, #8bc34a)',
           background: 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)',
           transition: 'width 0.5s ease',
           borderRadius: '2px'
         }} />
       </div>
 
-      {/* Info bar */}
+      {/* Info bar - responsive layout */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         maxWidth: '1400px',
         margin: '0 auto',
-        gap: '24px'
+        gap: '16px',
+        flexWrap: 'wrap'
       }}>
         {/* Question number */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
-          minWidth: '140px'
+          gap: '8px',
+          minWidth: '100px'
         }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '40px',
-            height: '40px',
+            width: '32px',
+            height: '32px',
             backgroundColor: '#2196f3',
             borderRadius: '50%',
-            fontSize: '16px',
+            fontSize: '14px',
             fontWeight: '700'
           }}>
             {currentQuestion}
           </div>
           <div>
             <div style={{
-              fontSize: '12px',
+              fontSize: '10px',
               color: '#999',
               textTransform: 'uppercase',
               letterSpacing: '0.5px'
@@ -86,7 +87,7 @@ export default function GameHeader({
               Question
             </div>
             <div style={{
-              fontSize: '14px',
+              fontSize: '12px',
               fontWeight: '600',
               color: '#fff'
             }}>
@@ -100,19 +101,19 @@ export default function GameHeader({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          minWidth: '120px'
+          minWidth: '80px'
         }}>
           <div style={{
-            fontSize: '12px',
+            fontSize: '10px',
             color: '#999',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            marginBottom: '4px'
+            marginBottom: '2px'
           }}>
-            Current Score
+            Score
           </div>
           <div style={{
-            fontSize: '28px',
+            fontSize: '24px',
             fontWeight: '700',
             color: '#4caf50',
             textShadow: '0 0 10px rgba(76, 175, 80, 0.5)',
@@ -126,15 +127,15 @@ export default function GameHeader({
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
-          minWidth: '140px',
+          gap: '8px',
+          minWidth: '100px',
           justifyContent: 'flex-end'
         }}>
           <div style={{
             textAlign: 'right'
           }}>
             <div style={{
-              fontSize: '12px',
+              fontSize: '10px',
               color: '#999',
               textTransform: 'uppercase',
               letterSpacing: '0.5px'
@@ -142,10 +143,10 @@ export default function GameHeader({
               Player
             </div>
             <div style={{
-              fontSize: '16px',
+              fontSize: '14px',
               fontWeight: '600',
               color: '#fff',
-              maxWidth: '150px',
+              maxWidth: '120px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
@@ -154,19 +155,36 @@ export default function GameHeader({
             </div>
           </div>
           <div style={{
-            width: '40px',
-            height: '40px',
+            width: '32px',
+            height: '32px',
             backgroundColor: '#9c27b0',
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '18px'
+            fontSize: '16px'
           }}>
             👤
           </div>
         </div>
       </div>
+
+      {/* Mobile-responsive styles */}
+      <style>{`
+        @media (max-width: 480px) {
+          .game-header {
+            padding: 8px 12px;
+          }
+          
+          .game-header > div:last-child {
+            gap: 8px;
+          }
+          
+          .game-header > div:last-child > div {
+            min-width: 80px !important;
+          }
+        }
+      `}</style>
     </header>
   );
 }

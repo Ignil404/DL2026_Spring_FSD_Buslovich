@@ -131,6 +131,27 @@ export default function QuestionCard({ question }: QuestionCardProps) {
           💡 {question.hint}
         </div>
       )}
+
+      {/* Mobile responsive styles */}
+      <style>{`
+        @media (max-width: 768px) {
+          .question-card {
+            padding: 8px 12px !important;
+            height: auto !important;
+            flex-wrap: wrap !important;
+          }
+          
+          .question-card h2 {
+            font-size: 14px !important;
+            width: 100% !important;
+            order: 3;
+          }
+          
+          .question-card > div:last-child {
+            display: none !important;
+          }
+        }
+      `}</style>
     </article>
   );
 }
