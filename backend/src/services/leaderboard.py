@@ -30,10 +30,10 @@ class LeaderboardService:
         round_id: str,
     ) -> tuple[bool, int | None, str, bool]:
         """Submit a completed round's score to the leaderboard.
-        
+
         Args:
             round_id: ID of the completed round
-            
+
         Returns:
             Tuple of (success, rank, message, qualified)
         """
@@ -51,9 +51,12 @@ class LeaderboardService:
             log.warning("Round not complete", answers=len(round_obj.answers))
             return False, None, "Round not complete", False
 
-        # Check if already submitted
-        existing = self.db.get(LeaderboardEntry, round_id)
-        if existing:
+        # Check if already submitted (via leaderboard entry)
+        existing_entry_stmt = select(LeaderboardEntry).where(
+            LeaderboardEntry.round_id == round_id
+        )
+        existing_entry = self.db.execute(existing_entry_stmt).scalars().first()
+        if existing_entry:
             log.info("Score already submitted")
             return False, None, "Score already submitted", False
 
@@ -86,7 +89,8 @@ class LeaderboardService:
         log.debug("Leaderboard entry created", score=round_obj.total_score)
 
         # Remove lowest score if over limit
-        count = self.db.query(LeaderboardEntry).count()
+        count_stmt = select(LeaderboardEntry)
+        count = len(self.db.execute(count_stmt).scalars().all())
         if count > self.TOP_N:
             lowest_stmt = (
                 select(LeaderboardEntry)
@@ -109,7 +113,7 @@ class LeaderboardService:
             select(LeaderboardEntry)
             .where(LeaderboardEntry.total_score > entry.total_score)
         )
-        rank = self.db.execute(rank_stmt).scalars().count() + 1
+        rank = len(self.db.execute(rank_stmt).scalars().all()) + 1
 
         log.info(
             "Score submitted to leaderboard",
@@ -144,15 +148,15 @@ class LeaderboardService:
 
     def get_entry_rank(self, entry: LeaderboardEntry) -> int:
         """Calculate the rank of a leaderboard entry.
-        
+
         Args:
             entry: The leaderboard entry
-            
+
         Returns:
             Rank (1-based)
         """
         stmt = select(LeaderboardEntry).where(
             LeaderboardEntry.total_score > entry.total_score
         )
-        higher_scores = self.db.execute(stmt).scalars().count()
+        higher_scores = len(self.db.execute(stmt).scalars().all())
         return higher_scores + 1
