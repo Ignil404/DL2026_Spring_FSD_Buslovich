@@ -1,8 +1,7 @@
 """Pydantic schemas for API request/response validation."""
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
 from datetime import datetime
 
+from pydantic import BaseModel, Field, field_validator
 
 # ============= Question Schemas =============
 
@@ -11,10 +10,10 @@ class QuestionResponse(BaseModel):
     id: int
     text: str
     location_type: str
-    hint: Optional[str] = None
+    hint: str | None = None
     time_limit: int
     difficulty: str
-    
+
     class Config:
         from_attributes = True
 
@@ -26,7 +25,7 @@ class QuestionCreate(BaseModel):
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     difficulty: str = Field(..., pattern="^(easy|medium|hard)$")
-    hint: Optional[str] = Field(None, max_length=200)
+    hint: str | None = Field(None, max_length=200)
     time_limit: int = Field(..., ge=30, le=60)
 
 
@@ -35,7 +34,7 @@ class QuestionCreate(BaseModel):
 class RoundStartRequest(BaseModel):
     """Request to start a new round."""
     player_name: str = Field(..., min_length=2, max_length=20)
-    
+
     @field_validator('player_name')
     @classmethod
     def validate_player_name(cls, v):
@@ -58,11 +57,11 @@ class RoundSummary(BaseModel):
     round_id: str
     player_name: str
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     is_complete: bool
     questions_answered: int
     total_score: int
-    answers: List["AnswerResult"]
+    answers: list["AnswerResult"]
 
 
 # ============= Answer Schemas =============
@@ -102,7 +101,7 @@ class LeaderboardEntryResponse(BaseModel):
 
 class LeaderboardResponse(BaseModel):
     """Leaderboard with top entries."""
-    entries: List[LeaderboardEntryResponse]
+    entries: list[LeaderboardEntryResponse]
 
 
 class ScoreSubmitRequest(BaseModel):
@@ -113,7 +112,7 @@ class ScoreSubmitRequest(BaseModel):
 class ScoreSubmitResponse(BaseModel):
     """Response after score submission."""
     success: bool
-    rank: Optional[int] = None
+    rank: int | None = None
     message: str
     qualified: bool
 
@@ -123,5 +122,5 @@ class ScoreSubmitResponse(BaseModel):
 class ErrorResponse(BaseModel):
     """Standard error response."""
     detail: str
-    code: Optional[str] = None
-    field_errors: Optional[List[dict]] = None
+    code: str | None = None
+    field_errors: list[dict] | None = None

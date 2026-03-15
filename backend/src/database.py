@@ -1,28 +1,52 @@
-"""Database initialization and configuration."""
+"""Database connection and session management.
+
+SRP: Only handles database connection and session lifecycle.
+No business logic, no model imports.
+"""
 import os
+from collections.abc import Generator
 from pathlib import Path
-from sqlalchemy import create_engine, Index
-from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Get the database URL from environment or use default SQLite
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+
+# Database configuration
 BASE_DIR = Path(__file__).parent.parent
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR}/data.db")
-
-# Create engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}  # Needed for SQLite
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    f"sqlite:///{BASE_DIR}/data.db"
 )
 
-# Create session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Engine configuration
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False},  # SQLite specific
+    echo=os.getenv("SQL_ECHO", "false").lower() == "true",
+)
 
-# Create base class for models
+# Session factory
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+    class_=Session,
+)
+
+# Base class for models
 Base = declarative_base()
 
 
-def get_db():
-    """Dependency for FastAPI to get database session."""
+def get_db() -> Generator[Session, None, None]:
+    """Dependency injection for database session.
+    
+    Yields:
+        Database session that closes automatically after request.
+    
+    Usage:
+        @router.get("/endpoint")
+        def endpoint(db: Session = Depends(get_db)):
+            ...
+    """
     db = SessionLocal()
     try:
         yield db
@@ -30,27 +54,23 @@ def get_db():
         db.close()
 
 
-def init_db():
-    """Initialize database tables."""
-    # Import all models to ensure they're registered with Base
-    from src.models import question, round, answer, leaderboard
+def init_db() -> None:
+    """Create all database tables."""
+    from src.models import answer, leaderboard, question, round  # noqa: F401
     Base.metadata.create_all(bind=engine)
-    print("Database initialized successfully!")
 
 
-def reset_db():
-    """Drop and recreate all tables."""
-    from src.models import question, round, answer, leaderboard
+def reset_db() -> None:
+    """Drop and recreate all tables (development only)."""
+    from src.models import answer, leaderboard, question, round  # noqa: F401
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
-    print("Database reset successfully!")
 
 
-def seed_questions():
+def seed_questions() -> None:
     """Seed the database with sample questions."""
-    from sqlalchemy.orm import Session
     from src.models.question import Question
-    
+
     sample_questions = [
         Question(
             text="Where is France located?",
@@ -59,7 +79,7 @@ def seed_questions():
             longitude=1.888334,
             difficulty="easy",
             hint="Western Europe",
-            time_limit=60
+            time_limit=60,
         ),
         Question(
             text="Find Tokyo, the capital of Japan",
@@ -68,7 +88,7 @@ def seed_questions():
             longitude=139.6503,
             difficulty="medium",
             hint="Eastern Asia",
-            time_limit=45
+            time_limit=45,
         ),
         Question(
             text="Where is the Eiffel Tower?",
@@ -77,7 +97,7 @@ def seed_questions():
             longitude=2.2945,
             difficulty="easy",
             hint="Paris, France",
-            time_limit=60
+            time_limit=60,
         ),
         Question(
             text="Find Brazil on the map",
@@ -86,7 +106,7 @@ def seed_questions():
             longitude=-51.9253,
             difficulty="easy",
             hint="South America",
-            time_limit=60
+            time_limit=60,
         ),
         Question(
             text="Where is New York City?",
@@ -95,7 +115,7 @@ def seed_questions():
             longitude=-74.0060,
             difficulty="medium",
             hint="East Coast, USA",
-            time_limit=45
+            time_limit=45,
         ),
         Question(
             text="Find the Great Wall of China",
@@ -104,7 +124,7 @@ def seed_questions():
             longitude=116.5704,
             difficulty="medium",
             hint="Northern China",
-            time_limit=45
+            time_limit=45,
         ),
         Question(
             text="Where is Australia?",
@@ -113,7 +133,7 @@ def seed_questions():
             longitude=133.7751,
             difficulty="easy",
             hint="Southern Hemisphere",
-            time_limit=60
+            time_limit=60,
         ),
         Question(
             text="Find London, United Kingdom",
@@ -122,7 +142,7 @@ def seed_questions():
             longitude=-0.1278,
             difficulty="medium",
             hint="Western Europe",
-            time_limit=45
+            time_limit=45,
         ),
         Question(
             text="Where is the Statue of Liberty?",
@@ -131,7 +151,7 @@ def seed_questions():
             longitude=-74.0445,
             difficulty="easy",
             hint="New York Harbor, USA",
-            time_limit=60
+            time_limit=60,
         ),
         Question(
             text="Find Egypt on the map",
@@ -140,20 +160,21 @@ def seed_questions():
             longitude=30.8025,
             difficulty="medium",
             hint="Northeastern Africa",
-            time_limit=45
+            time_limit=45,
         ),
     ]
-    
+
     db = SessionLocal()
     try:
-        if db.query(Question).count() > 0:
-            print("Questions already seeded, skipping seeding.")
+        from sqlalchemy import select
+        stmt = select(Question)
+        if db.execute(stmt).scalars().count() > 0:
+            print("Questions already seeded, skipping.")
             return
-        else:
-            print("Seeding questions...")
-            db.add_all(sample_questions)
-            db.commit()
-            print(f"Seeded {len(sample_questions)} questions successfully!")
+
+        db.add_all(sample_questions)
+        db.commit()
+        print(f"Seeded {len(sample_questions)} questions successfully!")
     finally:
         db.close()
 

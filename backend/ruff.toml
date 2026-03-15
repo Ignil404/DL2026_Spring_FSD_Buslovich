@@ -1,14 +1,10 @@
-[tool.ruff]
+# Ruff configuration
 line-length = 100
 target-version = "py312"
 
-[tool.ruff.lint]
+[lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = []
+ignore = ["W293"]  # Allow whitespace in blank lines (docstring formatting)
 
-[tool.ruff.lint.per-file-ignores]
+[lint.per-file-ignores]
 "__init__.py" = ["F401"]
-
-[tool.black]
-line-length = 100
-target-version = ["py312"]
