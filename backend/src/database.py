@@ -4,6 +4,7 @@ SRP: Only handles database connection and session lifecycle.
 No business logic, no model imports.
 """
 import os
+import sys
 from collections.abc import Generator
 from pathlib import Path
 
@@ -35,6 +36,9 @@ SessionLocal = sessionmaker(
 # Base class for models
 Base = declarative_base()
 
+if __name__ == "__main__":
+    sys.modules["src.database"] = sys.modules["__main__"]
+
 
 def get_db() -> Generator[Session, None, None]:
     """Dependency injection for database session.
@@ -56,13 +60,23 @@ def get_db() -> Generator[Session, None, None]:
 
 def init_db() -> None:
     """Create all database tables."""
-    from src.models import answer, leaderboard, question, round  # noqa: F401
+    from src.models.answer import Answer  
+    from src.models.leaderboard import LeaderboardEntry  
+    from src.models.question import Question  
+    from src.models.round import Round  
+    from src.models.suggested_question import SuggestedQuestion  
+
     Base.metadata.create_all(bind=engine)
 
 
 def reset_db() -> None:
     """Drop and recreate all tables (development only)."""
-    from src.models import answer, leaderboard, question, round  # noqa: F401
+    import src.models.answer 
+    import src.models.leaderboard 
+    import src.models.question 
+    import src.models.round 
+    import src.models.suggested_question 
+
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
