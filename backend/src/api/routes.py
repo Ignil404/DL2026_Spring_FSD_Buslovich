@@ -7,8 +7,7 @@ DIP: Receives services via dependency injection.
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from src.api.schemas import (
     AnswerRequest,

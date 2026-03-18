@@ -25,6 +25,7 @@ class LeaderboardEntry(Base):
         nullable=False,
         index=True,  # Index for leaderboard queries
     )
+    mode = Column(String(20), default="standard", nullable=False, index=True)
     submitted_at = Column(
         DateTime,
         default=datetime.utcnow,

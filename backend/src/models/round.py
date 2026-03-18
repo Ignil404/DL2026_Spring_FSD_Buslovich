@@ -24,6 +24,8 @@ class Round(Base):
     completed_at = Column(DateTime, nullable=True)
     total_score = Column(Integer, default=0)
     is_complete = Column(Boolean, default=False)
+    mode = Column(String(20), default="standard", nullable=False)
+    category = Column(String(50), nullable=True)
 
     # Relationships
     answers = relationship("Answer", back_populates="round", cascade="all, delete-orphan")
