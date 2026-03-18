@@ -3,18 +3,14 @@
 Centralized validation logic used across services and routes.
 """
 import re
-from typing import Final
-
-# Validation patterns
-PLAYER_NAME_PATTERN: Final = re.compile(r"^[a-zA-Z0-9\s]+$")
 
 
 def validate_player_name(name: str) -> tuple[bool, str | None]:
     """Validate player name format.
-    
+
     Args:
         name: Player name to validate
-        
+
     Returns:
         Tuple of (is_valid, error_message)
         - (True, None) if valid
@@ -31,8 +27,8 @@ def validate_player_name(name: str) -> tuple[bool, str | None]:
     if len(name) > 20:
         return False, "Player name must be at most 20 characters"
 
-    if not PLAYER_NAME_PATTERN.match(name):
-        return False, "Player name can only contain letters, numbers, and spaces"
+    if not re.match(r'^[\w\s-]{2,20}$', name, re.UNICODE):
+        return False, "Player name must be 2-20 characters"
 
     return True, None
 

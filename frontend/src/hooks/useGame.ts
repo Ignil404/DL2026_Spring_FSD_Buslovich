@@ -3,7 +3,7 @@
  */
 import { useState, useCallback, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { startRound, submitAnswer, getRoundSummary, getNextQuestion } from '../services/api';
+import { startRound, submitAnswer, getRoundSummary, getNextQuestion, completeRound } from '../services/api';
 import type { GameState, GameMode, GameCategory } from '../types';
 
 interface UseGameReturn {
@@ -12,6 +12,7 @@ interface UseGameReturn {
   startNewRound: (playerName: string) => Promise<void>;
   submitAnswerClick: (lat: number, lon: number, timeTaken: number) => Promise<void>;
   goToNextQuestion: () => void;
+  finishGame: () => Promise<void>;
   resetGame: () => void;
   isLoading: boolean;
   error: string | null;
@@ -238,20 +239,22 @@ export function useGame(): UseGameReturn {
 
   const goToNextQuestion = useCallback(async () => {
     console.log('[useGame] goToNextQuestion called', { currentQuestionNumber });
-    
+
     if (!gameState.round) {
       console.error('[useGame] No round found');
       return;
     }
 
-    // Check if this was the last question (question 10)
-    if (currentQuestionNumber >= 10) {
-      console.log('[useGame] Last question reached, fetching round summary');
+    // Only end game at 10 questions for standard mode
+    const isStandardMode = gameState.mode === 'standard' || !gameState.mode;
+    
+    if (isStandardMode && currentQuestionNumber >= 10) {
+      console.log('[useGame] Last question reached (standard mode), fetching round summary');
       // Fetch round summary
       try {
         const summary = await getRoundSummary(gameState.round.id);
         console.log('[useGame] Round summary received', summary);
-        
+
         // Use functional update to ensure we have latest state
         setGameState(prev => ({
           round: prev.round,         // Keep the original round for reference
@@ -275,14 +278,15 @@ export function useGame(): UseGameReturn {
       return;
     }
 
-    // Fetch next question from backend
+    // For non-standard modes, always fetch next question (no auto-end)
+    // Game ends via global timer (timed modes) or Finish button (endless)
     const playerName = sessionStorage.getItem('playerName') || 'Player';
     console.log('[useGame] Fetching next question for round', gameState.round.id);
-    
+
     try {
       const nextQuestionData = await getNextQuestion(gameState.round.id, playerName);
       console.log('[useGame] Next question received', nextQuestionData.question);
-      
+
       setGameState(prev => ({
         ...prev,
         currentQuestion: nextQuestionData.question,
@@ -297,7 +301,46 @@ export function useGame(): UseGameReturn {
         error: error instanceof Error ? error.message : 'Failed to load next question',
       }));
     }
-  }, [gameState.round, currentQuestionNumber]);
+  }, [gameState.round, gameState.mode, currentQuestionNumber]);
+
+  // Finish game mutation (for timed/endless modes)
+  const finishGameMutation = useMutation({
+    mutationFn: async (roundId: string) => {
+      await completeRound(roundId);
+      const summary = await getRoundSummary(roundId);
+      return summary;
+    },
+    onSuccess: (summary) => {
+      console.log('[useGame] Game finished', summary);
+      setGameState(prev => ({
+        round: prev.round,
+        roundSummary: summary,
+        currentQuestion: null,
+        currentAnswer: null,
+        isPlaying: false,
+        isComplete: true,
+        error: null,
+        mode: prev.mode,
+        category: prev.category,
+      }));
+    },
+    onError: (error) => {
+      console.error('[useGame] Failed to finish game', error);
+      setGameState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to finish game',
+      }));
+    },
+  });
+
+  const finishGame = useCallback(async () => {
+    console.log('[useGame] finishGame called');
+    if (!gameState.round) {
+      console.error('[useGame] No round found');
+      return;
+    }
+    finishGameMutation.mutate(gameState.round.id);
+  }, [gameState.round, finishGameMutation]);
 
   const resetGame = useCallback(() => {
     setGameState({
@@ -326,6 +369,7 @@ export function useGame(): UseGameReturn {
     startNewRound,
     submitAnswerClick,
     goToNextQuestion,
+    finishGame,
     resetGame,
     isLoading: startRoundMutation.isPending || submitAnswerMutation.isPending,
     error: gameState.error,

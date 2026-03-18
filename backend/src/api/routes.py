@@ -297,6 +297,54 @@ def get_round_summary(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/rounds/{round_id}/complete")
+def complete_round(
+    round_id: str,
+    db: Session = Depends(get_db),
+    game_service: GameService = Depends(get_game_service),
+) -> dict:
+    """Mark a round as complete (for timed/endless modes).
+
+    Args:
+        round_id: Round ID to complete
+        db: Database session (injected)
+        game_service: Game service (injected)
+
+    Returns:
+        Success message with round_id and total_score
+
+    Raises:
+        HTTPException: 404 if round not found
+    """
+    log = logger.bind(round_id=round_id)
+    log.info("Completing round")
+
+    round_obj = db.get(Round, round_id)
+
+    if not round_obj:
+        log.warning("Round not found")
+        raise HTTPException(status_code=404, detail="Round not found")
+
+    # Mark round as complete
+    round_obj.is_complete = True
+    round_obj.completed_at = datetime.now(UTC)
+    # total_score is already updated via add_answer()
+
+    db.commit()
+
+    log.info(
+        "Round completed",
+        total_score=round_obj.total_score,
+        questions_answered=len(round_obj.answers),
+    )
+
+    return {
+        "success": True,
+        "round_id": round_id,
+        "total_score": round_obj.total_score,
+    }
+
+
 @router.get("/leaderboard", response_model=LeaderboardResponse)
 def get_leaderboard(
     mode: str = Query(

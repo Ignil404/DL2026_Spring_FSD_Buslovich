@@ -46,8 +46,10 @@ class Round(Base):
         self.answers.append(answer)
         self.total_score += answer.final_score
 
-        # Mark complete if 10 answers
-        if len(self.answers) >= 10:
+        # Only mark complete after 10 answers for standard mode
+        # Non-standard modes (timed, endless) have unlimited questions
+        is_standard_mode = self.mode == "standard" or self.mode is None
+        if is_standard_mode and len(self.answers) >= 10:
             self.is_complete = True
             self.completed_at = datetime.utcnow()
 

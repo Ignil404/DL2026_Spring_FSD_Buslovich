@@ -110,6 +110,14 @@ export const getRoundSummary = async (roundId: string): Promise<Round> => {
 };
 
 /**
+ * Complete a round (for timed/endless modes)
+ */
+export const completeRound = async (roundId: string): Promise<void> => {
+  console.log('[API] completeRound called with roundId:', roundId);
+  await apiClient.post(`/rounds/${roundId}/complete`);
+};
+
+/**
  * Get leaderboard (top 10)
  */
 export const getLeaderboard = async (mode: string = 'standard'): Promise<LeaderboardResponse> => {

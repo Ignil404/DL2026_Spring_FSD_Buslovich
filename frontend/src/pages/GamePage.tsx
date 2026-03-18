@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import GameMap from '@/components/GameMap';
 import { useGame } from '../hooks/useGame';
-import { submitScore, getRoundSummary } from '../services/api';
+import { submitScore } from '../services/api';
 import type { GameMode } from '@/types';
 
 const TIMER_SECONDS = 30;
@@ -44,16 +44,22 @@ export default function GamePage() {
 
   const {
     gameState,
-    setGameState,
     startNewRound,
     submitAnswerClick,
     goToNextQuestion,
+    finishGame,
     resetGame,
     isLoading,
     error,
     currentQuestionNumber,
     currentScore,
   } = useGame();
+
+  // Store finishGame in a ref to avoid stale closure issues in the timer interval
+  const finishGameRef = useRef(finishGame);
+  useEffect(() => {
+    finishGameRef.current = finishGame;
+  }, [finishGame]);
 
   const question = gameState.currentQuestion;
   const gameMode = gameState.mode;
@@ -113,32 +119,28 @@ export default function GamePage() {
     }
   }, [gameState.currentQuestion, gameState.currentAnswer]);
 
-  // Global timer effect for timed modes
+  // Global timer effect for timed modes - uses Date.now() based approach to avoid re-render issues
   useEffect(() => {
     const timeLimit = getTimeLimitForMode(gameMode);
-    
+
     if (timeLimit !== null && gameState.isPlaying && !gameState.isComplete) {
-      // Initialize global timer on first load
-      if (globalTimeLeft === null) {
-        setGlobalTimeLeft(timeLimit);
-      }
-      
+      const startTime = Date.now();
+      const totalMs = timeLimit * 1000;
+
       globalTimerRef.current = setInterval(() => {
-        setGlobalTimeLeft((prev) => {
-          if (prev === null) {
-            return timeLimit;
-          }
-          if (prev <= 1) {
-            clearInterval(globalTimerRef.current);
-            // Time's up - end the game
-            handleFinishGame();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      return () => clearInterval(globalTimerRef.current);
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
+        setGlobalTimeLeft(remaining);
+
+        if (remaining <= 0) {
+          clearInterval(globalTimerRef.current!);
+          finishGameRef.current();
+        }
+      }, 250); // Update every 250ms for smooth display
+
+      return () => {
+        if (globalTimerRef.current) clearInterval(globalTimerRef.current);
+      };
     }
   }, [gameMode, gameState.isPlaying, gameState.isComplete]);
 
@@ -163,36 +165,6 @@ export default function GamePage() {
     submitAnswerClick(selectedPos.lat, selectedPos.lng, timeTaken);
   }, [selectedPos, gameState.currentAnswer, timeLeft, submitAnswerClick]);
 
-  // Handle finish game (for endless mode or when global timer runs out)
-  const handleFinishGame = useCallback(async () => {
-    if (!gameState.round) return;
-    
-    console.log('[GamePage] Finishing game, fetching round summary');
-    try {
-      const summary = await getRoundSummary(gameState.round.id);
-      console.log('[GamePage] Round summary received', summary);
-
-      setGameState(prev => ({
-        round: prev.round,
-        roundSummary: summary,
-        currentQuestion: null,
-        currentAnswer: null,
-        isPlaying: false,
-        isComplete: true,
-        error: null,
-        mode: prev.mode,
-        category: prev.category,
-      }));
-      console.log('[GamePage] State updated with roundSummary');
-    } catch (error) {
-      console.error('[GamePage] Failed to get round summary', error);
-      setGameState(prev => ({
-        ...prev,
-        error: error instanceof Error ? error.message : 'Failed to get round summary',
-      }));
-    }
-  }, [gameState.round]);
-
   // Auto-submit when time runs out
   useEffect(() => {
     if (timeLeft === 0 && !gameState.currentAnswer) {
@@ -205,6 +177,7 @@ export default function GamePage() {
   // Handle score submission
   const handleSubmitScore = async () => {
     if (!gameState.roundSummary || !gameState.round) return;
+    if (isSubmitting) return;
 
     setIsSubmitting(true);
     setSubmitMessage(null);
@@ -310,7 +283,7 @@ export default function GamePage() {
             <div className="mb-6">
               <p className="text-sm text-muted-foreground">Questions Answered</p>
               <p className="text-xl font-semibold">
-                {gameState.roundSummary.questions_answered} / 10
+                {gameState.roundSummary.questions_answered} {!gameState.mode || gameState.mode === 'standard' ? '/ 10' : 'questions answered'}
               </p>
             </div>
 
@@ -420,7 +393,7 @@ export default function GamePage() {
         <div className="flex items-center gap-2">
           {isEndlessMode && (
             <Button
-              onClick={handleFinishGame}
+              onClick={finishGame}
               variant="outline"
               size="sm"
               className="mr-2"

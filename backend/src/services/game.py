@@ -133,12 +133,15 @@ class GameService:
         used_ids = [a.question_id for a in round_with_answers.answers]
         log.debug("Questions answered", count=len(used_ids), ids=used_ids)
 
-        # Check if round is complete
-        if len(used_ids) >= self.QUESTIONS_PER_ROUND:
+        # Only limit to 10 questions for standard mode
+        # Non-standard modes (timed, endless) have unlimited questions
+        is_standard_mode = round_obj.mode == "standard" or round_obj.mode is None
+
+        if is_standard_mode and len(used_ids) >= self.QUESTIONS_PER_ROUND:
             round_obj.is_complete = True
             round_obj.completed_at = datetime.now(UTC)
             self.db.commit()
-            log.info("Round completed - all questions answered")
+            log.info("Round completed (standard mode) - all questions answered")
             return None
 
         # Get next question

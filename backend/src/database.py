@@ -60,22 +60,12 @@ def get_db() -> Generator[Session, None, None]:
 
 def init_db() -> None:
     """Create all database tables."""
-    from src.models.answer import Answer  
-    from src.models.leaderboard import LeaderboardEntry  
-    from src.models.question import Question  
-    from src.models.round import Round  
-    from src.models.suggested_question import SuggestedQuestion  
 
     Base.metadata.create_all(bind=engine)
 
 
 def reset_db() -> None:
     """Drop and recreate all tables (development only)."""
-    import src.models.answer 
-    import src.models.leaderboard 
-    import src.models.question 
-    import src.models.round 
-    import src.models.suggested_question 
 
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)

@@ -59,8 +59,17 @@ class LeaderboardService:
         )
         existing_entry = self.db.execute(existing_entry_stmt).scalars().first()
         if existing_entry:
-            log.info("Score already submitted")
-            return False, None, "Score already submitted", False
+            log.info("Score already submitted, returning existing entry")
+            # Calculate rank for existing entry
+            rank_stmt = (
+                select(LeaderboardEntry)
+                .where(
+                    LeaderboardEntry.mode == mode,
+                    LeaderboardEntry.total_score > existing_entry.total_score,
+                )
+            )
+            rank = len(self.db.execute(rank_stmt).scalars().all()) + 1
+            return True, rank, "Score already submitted", True
 
         # Get current 10th place score for this mode
         stmt = (
