@@ -3,17 +3,14 @@
  */
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import type {
-  Question,
   RoundResponse,
-  AnswerRequest,
   AnswerResult,
   Round,
   LeaderboardResponse,
-  ScoreSubmitRequest,
   ScoreSubmitResponse,
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 // Create axios instance with default config
 const apiClient: AxiosInstance = axios.create({
@@ -70,17 +67,19 @@ export const submitAnswer = async (
   roundId: string,
   questionId: number,
   clickedLat: number,
-  clickedLon: number
+  clickedLon: number,
+  timeTaken: number,
 ): Promise<AnswerResult> => {
-  console.log('[API] submitAnswer called', { roundId, questionId, clickedLat, clickedLon });
-  
+  console.log('[API] submitAnswer called', { roundId, questionId, clickedLat, clickedLon, timeTaken });
+
   const payload = {
     round_id: roundId,
     question_id: questionId,
     clicked_lat: clickedLat,
     clicked_lon: clickedLon,
+    time_taken: timeTaken,
   };
-  
+
   console.log('[API] Sending payload', payload);
   
   const response = await apiClient.post<AnswerResult>('/answers', payload);

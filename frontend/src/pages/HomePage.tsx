@@ -1,32 +1,37 @@
 /**
  * HomePage - Entry point with player name input and start button
+ * Restyled with Tailwind CSS and shadcn/ui
  */
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface HomePageProps {
-  onStartGame: (playerName: string) => void;
+  onStartGame?: (playerName: string) => void;
 }
 
-export default function HomePage({ onStartGame }: HomePageProps) {
+export default function HomePage(_props: HomePageProps) {
   const [playerName, setPlayerName] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate name
     if (!playerName.trim()) {
       setError('Please enter your name');
       return;
     }
-    
+
     if (playerName.trim().length < 2) {
       setError('Name must be at least 2 characters');
       return;
     }
-    
+
     if (playerName.trim().length > 20) {
       setError('Name must be 20 characters or less');
       return;
@@ -34,140 +39,74 @@ export default function HomePage({ onStartGame }: HomePageProps) {
 
     // Store player name for GamePage to use
     sessionStorage.setItem('playerName', playerName.trim());
-    
+
     // Navigate to game (GamePage will start the round)
     navigate('/game');
   };
 
   return (
-    <div className="home-page" style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      padding: '20px',
-      backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-    }}>
-      <div style={{
-        backgroundColor: '#fff',
-        padding: '40px',
-        borderRadius: '12px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-        maxWidth: '400px',
-        width: '100%'
-      }}>
-        {/* Title */}
-        <h1 style={{
-          fontSize: '32px',
-          fontWeight: 'bold',
-          color: '#333',
-          marginBottom: '8px',
-          textAlign: 'center'
-        }}>
-          🌍 Geography Quiz
-        </h1>
-        
-        <p style={{
-          fontSize: '16px',
-          color: '#666',
-          textAlign: 'center',
-          marginBottom: '32px'
-        }}>
-          Test your geography knowledge!
-        </p>
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.4 }}
+      >
+        <Card className="w-full max-w-md border-border bg-card">
+          <CardHeader className="text-center">
+            <div className="mb-2 text-6xl">🌍</div>
+            <CardTitle className="text-3xl font-bold">Geography Quiz</CardTitle>
+            <CardDescription>Test your knowledge of world locations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <Input
+                  type="text"
+                  placeholder="Enter your name"
+                  value={playerName}
+                  onChange={(e) => {
+                    setPlayerName(e.target.value);
+                    setError('');
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e)}
+                  className="w-full"
+                  maxLength={20}
+                />
+                {error && (
+                  <p className="mt-2 text-sm text-destructive">{error}</p>
+                )}
+              </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '16px' }}>
-            <label
-              htmlFor="playerName"
-              style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#333',
-                marginBottom: '8px'
-              }}
-            >
-              Enter Your Name
-            </label>
-            <input
-              type="text"
-              id="playerName"
-              value={playerName}
-              onChange={(e) => {
-                setPlayerName(e.target.value);
-                setError('');
-              }}
-              placeholder="Your name"
-              maxLength={20}
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '16px',
-                border: '2px solid #e0e0e0',
-                borderRadius: '8px',
-                outline: 'none',
-                transition: 'border-color 0.2s'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#667eea'}
-              onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-            />
-            
-            {error && (
-              <p style={{
-                marginTop: '8px',
-                fontSize: '14px',
-                color: '#f44336'
-              }}>
-                {error}
-              </p>
-            )}
-          </div>
+              <Button
+                type="submit"
+                disabled={!playerName.trim()}
+                className="w-full"
+              >
+                Start Quiz
+              </Button>
+            </form>
 
-          <button
-            type="submit"
-            style={{
-              width: '100%',
-              padding: '14px',
-              fontSize: '16px',
-              fontWeight: '600',
-              color: '#fff',
-              backgroundColor: '#667eea',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#5568d3'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#667eea'}
-          >
-            Start Quiz
-          </button>
-        </form>
+            <div className="mt-6 text-center">
+              <Link
+                to="/leaderboard"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                🏆 View Leaderboard
+              </Link>
+            </div>
 
-        {/* Instructions */}
-        <div style={{
-          marginTop: '24px',
-          padding: '16px',
-          backgroundColor: '#f5f5f5',
-          borderRadius: '8px',
-          fontSize: '14px',
-          color: '#666'
-        }}>
-          <strong>How to play:</strong>
-          <ul style={{
-            marginTop: '8px',
-            paddingLeft: '20px'
-          }}>
-            <li>You'll get 10 geography questions</li>
-            <li>Click on the map where you think the location is</li>
-            <li>Points based on accuracy and speed</li>
-            <li>Submit your score to the leaderboard!</li>
-          </ul>
-        </div>
-      </div>
+            <div className="mt-6 rounded-lg bg-muted p-4">
+              <p className="mb-2 text-sm font-semibold">How to play:</p>
+              <ul className="list-inside list-disc text-sm text-muted-foreground">
+                <li>You'll get 10 geography questions</li>
+                <li>Click on the map where you think the location is</li>
+                <li>Points based on accuracy and speed</li>
+                <li>Submit your score to the leaderboard!</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

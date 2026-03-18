@@ -2,9 +2,9 @@
  * useGame hook - manages game state and API interactions
  */
 import { useState, useCallback, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { startRound, submitAnswer, getRoundSummary, getNextQuestion } from '../services/api';
-import type { GameState, Question, AnswerResult, Round } from '../types';
+import type { GameState } from '../types';
 
 interface UseGameReturn {
   gameState: GameState;
@@ -14,10 +14,11 @@ interface UseGameReturn {
   resetGame: () => void;
   isLoading: boolean;
   error: string | null;
+  currentQuestionNumber: number;
+  currentScore: number;
 }
 
 export function useGame(): UseGameReturn {
-  const queryClient = useQueryClient();
   const [gameState, setGameState] = useState<GameState>(() => {
     // Try to restore from sessionStorage
     const saved = sessionStorage.getItem('gameState');
@@ -100,7 +101,7 @@ export function useGame(): UseGameReturn {
     },
     onSuccess: (data) => {
       console.log('[useGame] Round started', data);
-      
+
       // Store round info from the response
       setGameState({
         round: {
@@ -112,6 +113,7 @@ export function useGame(): UseGameReturn {
           total_score: 0,
           answers: [],
         },
+        roundSummary: null,
         currentQuestion: data.question,
         currentAnswer: null,
         isPlaying: true,
@@ -137,14 +139,15 @@ export function useGame(): UseGameReturn {
       questionId,
       lat,
       lon,
+      timeTaken,
     }: {
       roundId: string;
       questionId: number;
       lat: number;
       lon: number;
+      timeTaken: number;
     }) => {
-      const timeTaken = timerStartTime ? (Date.now() - timerStartTime) / 1000 : 0;
-      return await submitAnswer(roundId, questionId, lat, lon);
+      return await submitAnswer(roundId, questionId, lat, lon, timeTaken);
     },
     onSuccess: (data) => {
       // Update current score
@@ -171,23 +174,23 @@ export function useGame(): UseGameReturn {
   const submitAnswerClick = useCallback(async (
     lat: number,
     lon: number,
-    timeTaken: number
+    timeTaken: number,
   ) => {
     console.log('[useGame] submitAnswerClick called', { lat, lon, timeTaken });
-    console.log('[useGame] Current state', { 
-      hasRound: !!gameState.round, 
+    console.log('[useGame] Current state', {
+      hasRound: !!gameState.round,
       roundId: gameState.round?.id,
       hasCurrentQuestion: !!gameState.currentQuestion,
       questionId: gameState.currentQuestion?.id
     });
-    
+
     if (!gameState.round) {
       const errorMsg = '[useGame] No round found - round must be created before submitting answers';
       console.error(errorMsg);
       setGameState(prev => ({ ...prev, error: errorMsg }));
       return;
     }
-    
+
     if (!gameState.currentQuestion) {
       const errorMsg = '[useGame] No current question found';
       console.error(errorMsg);
@@ -195,11 +198,15 @@ export function useGame(): UseGameReturn {
       return;
     }
 
+    // Use provided timeTaken
+    console.log('[useGame] Using time taken', timeTaken);
+
     console.log('[useGame] Mutating with', {
       roundId: gameState.round.id,
       questionId: gameState.currentQuestion.id,
       lat,
-      lon
+      lon,
+      timeTaken,
     });
 
     submitAnswerMutation.mutate({
@@ -207,8 +214,9 @@ export function useGame(): UseGameReturn {
       questionId: gameState.currentQuestion.id,
       lat,
       lon,
+      timeTaken,
     });
-  }, [gameState.round, gameState.currentQuestion, submitAnswerMutation]);
+  }, [gameState.round, gameState.currentQuestion, timerStartTime, submitAnswerMutation]);
 
   const goToNextQuestion = useCallback(async () => {
     console.log('[useGame] goToNextQuestion called', { currentQuestionNumber });

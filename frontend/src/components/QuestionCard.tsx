@@ -25,13 +25,13 @@ export default function QuestionCard({ question }: QuestionCardProps) {
   const getDifficultyConfig = (difficulty: string) => {
     switch (difficulty) {
       case 'easy':
-        return { color: '#4caf50', bgColor: '#e8f5e9' };
+        return { color: '#4caf50', bgColor: '#e8f5e9', label: 'Easy' };
       case 'medium':
-        return { color: '#ff9800', bgColor: '#fff3e0' };
+        return { color: '#ff9800', bgColor: '#fff3e0', label: 'Medium' };
       case 'hard':
-        return { color: '#f44336', bgColor: '#ffebee' };
+        return { color: '#f44336', bgColor: '#ffebee', label: 'Hard' };
       default:
-        return { color: '#9e9e9e', bgColor: '#f5f5f5' };
+        return { color: '#9e9e9e', bgColor: '#f5f5f5', label: difficulty };
     }
   };
 

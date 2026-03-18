@@ -5,6 +5,16 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaf
 import { LatLngExpression, Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+// Fix default marker icon for bundled assets
+import L from 'leaflet';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+
 interface MapProps {
   onLocationClick: (lat: number, lon: number) => void;
   correctLocation?: { latitude: number; longitude: number };
@@ -16,7 +26,7 @@ interface MapProps {
 const createCustomIcon = (color = 'blue') => {
   return new Icon({
     iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    shadowUrl: markerShadow,
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
@@ -87,7 +97,7 @@ export default function Map({ onLocationClick, correctLocation, userLocation, di
         <ClickHandler onLocationClick={onLocationClick} disabled={disabled} />
 
         {/* Correct location marker (shown after answer) */}
-        {isValidLocation(correctLocation) && (
+        {correctLocation && isValidLocation(correctLocation) && (
           <Marker
             position={[correctLocation.latitude, correctLocation.longitude]}
             icon={createCustomIcon('green')}
@@ -97,7 +107,7 @@ export default function Map({ onLocationClick, correctLocation, userLocation, di
         )}
 
         {/* User's clicked location marker (shown after answer) */}
-        {isValidLocation(userLocation) && (
+        {userLocation && isValidLocation(userLocation) && (
           <Marker
             position={[userLocation.latitude, userLocation.longitude]}
             icon={createCustomIcon('red')}
