@@ -72,6 +72,7 @@ class AnswerRequest(BaseModel):
     question_id: int
     clicked_lat: float = Field(..., ge=-90, le=90)
     clicked_lon: float = Field(..., ge=-180, le=180)
+    time_taken: float = Field(..., ge=0, description="Time taken to answer in seconds")
 
 
 class AnswerResult(BaseModel):

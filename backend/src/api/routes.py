@@ -27,6 +27,7 @@ from src.models.question import Question
 from src.models.round import Round
 from src.services.game import GameService
 from src.services.leaderboard import LeaderboardService
+from src.services.scoring import is_correct_answer
 from src.utils.validators import validate_player_name
 
 logger = get_logger(__name__)
@@ -84,16 +85,8 @@ def get_question(
 
     if round_id:
         # Continue existing round
-        log = log.bind(round_id=round_id)
         log.info("Getting next question for existing round")
-
-        # Load round with answers
-        stmt = (
-            select(Round)
-            .options(joinedload(Round.answers))
-            .where(Round.id == round_id)
-        )
-        round_obj = db.execute(stmt).scalars().first()
+        round_obj = game_service.get_round_summary(round_id)
 
         if not round_obj:
             log.warning("Round not found")
@@ -173,7 +166,7 @@ def submit_answer(
         question=question,
         clicked_lat=request.clicked_lat,
         clicked_lon=request.clicked_lon,
-        time_taken=30.0,  # Placeholder - should come from client
+        time_taken=request.time_taken,
     )
 
     log.info(
@@ -201,7 +194,7 @@ def submit_answer(
         base_points=answer.base_points,
         speed_multiplier=answer.speed_multiplier,
         final_score=answer.final_score,
-        is_correct=answer.distance_km < 500,
+        is_correct=is_correct_answer(answer.distance_km, question.difficulty),
         next_question_available=next_available,
     )
 
@@ -257,7 +250,7 @@ def get_round_summary(
                     "base_points": answer.base_points,
                     "speed_multiplier": answer.speed_multiplier,
                     "final_score": answer.final_score,
-                    "is_correct": answer.distance_km < 500,
+                    "is_correct": is_correct_answer(answer.distance_km, question.difficulty),
                     "next_question_available": len(round_obj.answers) < 10,
                 })
 

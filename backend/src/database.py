@@ -168,10 +168,11 @@ def seed_questions() -> None:
     try:
         from sqlalchemy import select
         stmt = select(Question)
-        if db.execute(stmt).scalars().count() > 0:
+        count = len(db.execute(stmt).scalars().all())
+        if count > 0:
             print("Questions already seeded, skipping.")
             return
-
+        
         db.add_all(sample_questions)
         db.commit()
         print(f"Seeded {len(sample_questions)} questions successfully!")

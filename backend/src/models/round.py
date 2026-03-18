@@ -31,11 +31,12 @@ class Round(Base):
 
     @validates('player_name')
     def validate_player_name(self, key, value):
-        if not value or len(value) < 2 or len(value) > 20:
-            raise ValueError("Player name must be 2-20 characters")
-        # Allow alphanumeric and spaces only
-        if not all(c.isalnum() or c.isspace() for c in value):
-            raise ValueError("Player name can only contain letters, numbers, and spaces")
+        """Validate player name using centralized validator."""
+        from src.utils.validators import validate_player_name
+        
+        is_valid, error = validate_player_name(value)
+        if not is_valid:
+            raise ValueError(error)
         return value.strip()
 
     def add_answer(self, answer):
