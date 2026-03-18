@@ -210,20 +210,19 @@ export default function GamePage() {
     setSubmitMessage(null);
 
     try {
-      const result = await submitScore(gameState.round.id);
-      console.log('[GamePage] Score submitted', result);
+      const result = await submitScore(gameState.round.id, gameState.mode);
 
       if (result.success) {
         setSubmitMessage(`🎉 ${result.message}`);
         setTimeout(() => {
-          navigate('/leaderboard');
+          navigate('/leaderboard', { state: { mode: gameState.mode } });
         }, 1500);
       } else {
         setSubmitMessage(`⚠️ ${result.message}`);
       }
-    } catch (error) {
-      console.error('[GamePage] Failed to submit score', error);
-      setSubmitMessage('Failed to submit score. Please try again.');
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to submit score. Please try again.';
+      setSubmitMessage(`❌ ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }

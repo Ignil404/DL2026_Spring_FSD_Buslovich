@@ -112,8 +112,10 @@ export const getRoundSummary = async (roundId: string): Promise<Round> => {
 /**
  * Get leaderboard (top 10)
  */
-export const getLeaderboard = async (): Promise<LeaderboardResponse> => {
-  const response = await apiClient.get<LeaderboardResponse>('/leaderboard');
+export const getLeaderboard = async (mode: string = 'standard'): Promise<LeaderboardResponse> => {
+  const response = await apiClient.get<LeaderboardResponse>('/leaderboard', {
+    params: { mode },
+  });
   return response.data;
 };
 
