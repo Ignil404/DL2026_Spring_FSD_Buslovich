@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import GameMap from '@/components/GameMap';
 import { useGame } from '../hooks/useGame';
-import { submitScore } from '../services/api';
+import { submitScore, getRoundSummary } from '../services/api';
+import type { GameMode } from '@/types';
 
 const TIMER_SECONDS = 30;
 
@@ -22,6 +23,14 @@ function normalizeLon(lon: number): number {
   return lon;
 }
 
+// Helper function to get global time limit for timed modes
+function getTimeLimitForMode(mode: GameMode): number | null {
+  if (mode === 'timed_1') return 60;
+  if (mode === 'timed_3') return 180;
+  if (mode === 'timed_5') return 300;
+  return null; // standard and endless have no global timer
+}
+
 export default function GamePage() {
   const navigate = useNavigate();
   const [selectedPos, setSelectedPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -29,10 +38,13 @@ export default function GamePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
+  const [globalTimeLeft, setGlobalTimeLeft] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const globalTimerRef = useRef<ReturnType<typeof setInterval>>();
 
   const {
     gameState,
+    setGameState,
     startNewRound,
     submitAnswerClick,
     goToNextQuestion,
@@ -44,6 +56,9 @@ export default function GamePage() {
   } = useGame();
 
   const question = gameState.currentQuestion;
+  const gameMode = gameState.mode;
+  const isTimedMode = gameMode === 'timed_1' || gameMode === 'timed_3' || gameMode === 'timed_5';
+  const isEndlessMode = gameMode === 'endless';
 
   // Initialize game round on mount if not already started
   useEffect(() => {
@@ -98,6 +113,35 @@ export default function GamePage() {
     }
   }, [gameState.currentQuestion, gameState.currentAnswer]);
 
+  // Global timer effect for timed modes
+  useEffect(() => {
+    const timeLimit = getTimeLimitForMode(gameMode);
+    
+    if (timeLimit !== null && gameState.isPlaying && !gameState.isComplete) {
+      // Initialize global timer on first load
+      if (globalTimeLeft === null) {
+        setGlobalTimeLeft(timeLimit);
+      }
+      
+      globalTimerRef.current = setInterval(() => {
+        setGlobalTimeLeft((prev) => {
+          if (prev === null) {
+            return timeLimit;
+          }
+          if (prev <= 1) {
+            clearInterval(globalTimerRef.current);
+            // Time's up - end the game
+            handleFinishGame();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      return () => clearInterval(globalTimerRef.current);
+    }
+  }, [gameMode, gameState.isPlaying, gameState.isComplete]);
+
   // Handle map click
   const handleSelectPos = useCallback((pos: { lat: number; lng: number }) => {
     if (
@@ -118,6 +162,36 @@ export default function GamePage() {
     const timeTaken = TIMER_SECONDS - timeLeft;
     submitAnswerClick(selectedPos.lat, selectedPos.lng, timeTaken);
   }, [selectedPos, gameState.currentAnswer, timeLeft, submitAnswerClick]);
+
+  // Handle finish game (for endless mode or when global timer runs out)
+  const handleFinishGame = useCallback(async () => {
+    if (!gameState.round) return;
+    
+    console.log('[GamePage] Finishing game, fetching round summary');
+    try {
+      const summary = await getRoundSummary(gameState.round.id);
+      console.log('[GamePage] Round summary received', summary);
+
+      setGameState(prev => ({
+        round: prev.round,
+        roundSummary: summary,
+        currentQuestion: null,
+        currentAnswer: null,
+        isPlaying: false,
+        isComplete: true,
+        error: null,
+        mode: prev.mode,
+        category: prev.category,
+      }));
+      console.log('[GamePage] State updated with roundSummary');
+    } catch (error) {
+      console.error('[GamePage] Failed to get round summary', error);
+      setGameState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to get round summary',
+      }));
+    }
+  }, [gameState.round]);
 
   // Auto-submit when time runs out
   useEffect(() => {
@@ -157,10 +231,18 @@ export default function GamePage() {
 
   const playerName = sessionStorage.getItem('playerName') || 'Player';
 
-  // Timer styling
+  // Per-question timer styling
   const timerColor = timeLeft > 15 ? 'text-primary' : timeLeft > 5 ? 'text-amber-400' : 'text-destructive';
   const timerPct = (timeLeft / TIMER_SECONDS) * 100;
   const timerStroke = timeLeft > 15 ? 'hsl(142,71%,45%)' : timeLeft > 5 ? 'hsl(38,92%,50%)' : 'hsl(0,84%,60%)';
+
+  // Global timer styling for timed modes
+  const formatGlobalTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+  const globalTimerColor = globalTimeLeft !== null && globalTimeLeft > 30 ? 'text-primary' : 'text-destructive';
 
   // Error state
   if (error) {
@@ -313,11 +395,40 @@ export default function GamePage() {
     <div className="flex h-screen flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3">
-        <span className="font-semibold text-muted-foreground">
-          {currentQuestionNumber} / 10
-        </span>
+        {/* Left: Question counter or global timer */}
+        <div className="flex items-center gap-3">
+          {isTimedMode ? (
+            <div className={`flex items-center gap-2 text-2xl font-bold ${globalTimerColor}`}>
+              <span>⏱</span>
+              <span>{formatGlobalTime(globalTimeLeft || 0)}</span>
+              <span className="text-sm font-normal text-muted-foreground">remaining</span>
+            </div>
+          ) : isEndlessMode ? (
+            <span className="font-semibold text-muted-foreground">
+              Question {currentQuestionNumber}
+            </span>
+          ) : (
+            <span className="font-semibold text-muted-foreground">
+              Question {currentQuestionNumber} / 10
+            </span>
+          )}
+        </div>
+        
+        {/* Center: Score */}
         <span className="text-lg font-bold text-secondary">{currentScore} pts</span>
+        
+        {/* Right: Player info and Finish button for endless mode */}
         <div className="flex items-center gap-2">
+          {isEndlessMode && (
+            <Button
+              onClick={handleFinishGame}
+              variant="outline"
+              size="sm"
+              className="mr-2"
+            >
+              Finish Game
+            </Button>
+          )}
           <span className="hidden text-sm text-foreground sm:inline">{playerName}</span>
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-muted text-sm font-bold">
@@ -340,20 +451,22 @@ export default function GamePage() {
             </>
           )}
         </div>
-        {/* Circular timer */}
-        <div className="relative flex h-14 w-14 shrink-0 items-center justify-center">
-          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 56 56">
-            <circle cx="28" cy="28" r="24" fill="none" stroke="hsl(0,0%,15%)" strokeWidth="4" />
-            <circle
-              cx="28" cy="28" r="24" fill="none"
-              stroke={timerStroke} strokeWidth="4"
-              strokeDasharray={`${(timerPct / 100) * 150.8} 150.8`}
-              strokeLinecap="round"
-              className="transition-all duration-1000 ease-linear"
-            />
-          </svg>
-          <span className={`text-sm font-bold ${timerColor}`}>{timeLeft}</span>
-        </div>
+        {/* Circular timer - only shown in standard and endless modes */}
+        {!isTimedMode && (
+          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center">
+            <svg className="absolute inset-0 -rotate-90" viewBox="0 0 56 56">
+              <circle cx="28" cy="28" r="24" fill="none" stroke="hsl(0,0%,15%)" strokeWidth="4" />
+              <circle
+                cx="28" cy="28" r="24" fill="none"
+                stroke={timerStroke} strokeWidth="4"
+                strokeDasharray={`${(timerPct / 100) * 150.8} 150.8`}
+                strokeLinecap="round"
+                className="transition-all duration-1000 ease-linear"
+              />
+            </svg>
+            <span className={`text-sm font-bold ${timerColor}`}>{timeLeft}</span>
+          </div>
+        )}
       </div>
 
       {/* Map */}
@@ -416,7 +529,7 @@ export default function GamePage() {
                   onClick={goToNextQuestion}
                   className="w-full"
                 >
-                  {currentQuestionNumber >= 10 ? "See Results" : "Next Question"}
+                  {isEndlessMode ? "Next Question" : currentQuestionNumber >= 10 ? "See Results" : "Next Question"}
                 </Button>
               </Card>
             </motion.div>

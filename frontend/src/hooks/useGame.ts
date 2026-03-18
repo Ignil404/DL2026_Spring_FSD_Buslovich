@@ -8,6 +8,7 @@ import type { GameState, GameMode, GameCategory } from '../types';
 
 interface UseGameReturn {
   gameState: GameState;
+  setGameState: React.Dispatch<React.SetStateAction<GameState>>;
   startNewRound: (playerName: string) => Promise<void>;
   submitAnswerClick: (lat: number, lon: number, timeTaken: number) => Promise<void>;
   goToNextQuestion: () => void;
@@ -321,6 +322,7 @@ export function useGame(): UseGameReturn {
 
   return {
     gameState,
+    setGameState,
     startNewRound,
     submitAnswerClick,
     goToNextQuestion,
