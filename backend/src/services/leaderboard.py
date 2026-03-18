@@ -28,17 +28,19 @@ class LeaderboardService:
     def submit_score(
         self,
         round_id: str,
+        mode: str = "standard",
     ) -> tuple[bool, int | None, str, bool]:
         """Submit a completed round's score to the leaderboard.
 
         Args:
             round_id: ID of the completed round
+            mode: Game mode (default: "standard")
 
         Returns:
             Tuple of (success, rank, message, qualified)
         """
         log = logger.bind(round_id=round_id)
-        log.info("Attempting to submit score to leaderboard")
+        log.info("Attempting to submit score to leaderboard", mode=mode)
 
         # Get the round
         round_obj = self.db.get(Round, round_id)
@@ -60,9 +62,10 @@ class LeaderboardService:
             log.info("Score already submitted")
             return False, None, "Score already submitted", False
 
-        # Get current 10th place score
+        # Get current 10th place score for this mode
         stmt = (
             select(LeaderboardEntry)
+            .where(LeaderboardEntry.mode == mode)
             .order_by(desc(LeaderboardEntry.total_score))
             .offset(self.TOP_N - 1)
             .limit(1)
@@ -84,16 +87,18 @@ class LeaderboardService:
             round_id=round_id,
             player_name=round_obj.player_name,
             total_score=round_obj.total_score,
+            mode=mode,
         )
         self.db.add(entry)
         log.debug("Leaderboard entry created", score=round_obj.total_score)
 
-        # Remove lowest score if over limit
-        count_stmt = select(LeaderboardEntry)
+        # Remove lowest score if over limit (for this mode)
+        count_stmt = select(LeaderboardEntry).where(LeaderboardEntry.mode == mode)
         count = len(self.db.execute(count_stmt).scalars().all())
         if count > self.TOP_N:
             lowest_stmt = (
                 select(LeaderboardEntry)
+                .where(LeaderboardEntry.mode == mode)
                 .order_by(
                     LeaderboardEntry.total_score.asc(),
                     LeaderboardEntry.submitted_at.asc(),
@@ -108,10 +113,13 @@ class LeaderboardService:
         self.db.commit()
         self.db.refresh(entry)
 
-        # Calculate rank
+        # Calculate rank (for this mode)
         rank_stmt = (
             select(LeaderboardEntry)
-            .where(LeaderboardEntry.total_score > entry.total_score)
+            .where(
+                LeaderboardEntry.mode == mode,
+                LeaderboardEntry.total_score > entry.total_score,
+            )
         )
         rank = len(self.db.execute(rank_stmt).scalars().all()) + 1
 
@@ -124,17 +132,21 @@ class LeaderboardService:
 
         return True, rank, f"New personal best! Ranked #{rank}", True
 
-    def get_top_10(self) -> list[LeaderboardEntry]:
+    def get_top_10(self, mode: str = "standard") -> list[LeaderboardEntry]:
         """Get top 10 leaderboard entries sorted by score.
-        
+
+        Args:
+            mode: Game mode to filter by (default: "standard")
+
         Returns:
             List of LeaderboardEntry ordered by score DESC, then submitted_at ASC
         """
         log = logger.bind()
-        log.debug("Fetching top 10 leaderboard entries")
+        log.debug("Fetching top 10 leaderboard entries", mode=mode)
 
         stmt = (
             select(LeaderboardEntry)
+            .where(LeaderboardEntry.mode == mode)
             .order_by(
                 desc(LeaderboardEntry.total_score),
                 LeaderboardEntry.submitted_at.asc(),

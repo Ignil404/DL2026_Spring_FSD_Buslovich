@@ -19,11 +19,13 @@ from src.api.schemas import (
     RoundSummary,
     ScoreSubmitRequest,
     ScoreSubmitResponse,
+    SuggestedQuestionRequest,
 )
 from src.database import get_db
 from src.logger import get_logger
 from src.models.question import Question
 from src.models.round import Round
+from src.models.suggested_question import SuggestedQuestion
 from src.services.game import GameService
 from src.services.leaderboard import LeaderboardService
 from src.services.scoring import is_correct_answer
@@ -56,20 +58,30 @@ def get_question(
         None,
         description="Existing round ID (optional)",
     ),
+    mode: str = Query(
+        "standard",
+        description="Game mode",
+    ),
+    category: str | None = Query(
+        None,
+        description="Question category filter (optional)",
+    ),
     db: Session = Depends(get_db),
     game_service: GameService = Depends(get_game_service),
 ) -> RoundResponse:
     """Start a new round or get next question for existing round.
-    
+
     Args:
         player_name: Player name (required for new rounds)
         round_id: Existing round ID (optional, for continuing rounds)
+        mode: Game mode (default: "standard")
+        category: Question category filter (optional)
         db: Database session (injected)
         game_service: Game service (injected)
-        
+
     Returns:
         RoundResponse with round_id and question
-        
+
     Raises:
         HTTPException: 400 if player name invalid, 404 if round not found,
                       409 if round complete, 400 if no questions available
@@ -95,7 +107,7 @@ def get_question(
             log.warning("Round already complete")
             raise HTTPException(status_code=409, detail="Round already complete")
 
-        question = game_service.get_next_question(round_obj)
+        question = game_service.get_next_question(round_obj, category=category)
         if not question:
             log.warning("No more questions available")
             raise HTTPException(status_code=400, detail="No more questions available")
@@ -106,11 +118,17 @@ def get_question(
             total_questions=10,
             question=QuestionResponse.model_validate(question),
             timer_starts_at=datetime.now(UTC),
+            mode=round_obj.mode,
+            category=round_obj.category,
         )
 
     # Start new round
-    log.info("Starting new round")
-    round_obj, question = game_service.start_round(player_name.strip())
+    log.info("Starting new round", mode=mode, category=category)
+    round_obj, question = game_service.start_round(
+        player_name=player_name.strip(),
+        mode=mode,
+        category=category,
+    )
 
     return RoundResponse(
         round_id=round_obj.id,
@@ -118,6 +136,8 @@ def get_question(
         total_questions=10,
         question=QuestionResponse.model_validate(question),
         timer_starts_at=datetime.now(UTC),
+        mode=mode,
+        category=category,
     )
 
 
@@ -279,18 +299,23 @@ def get_round_summary(
 
 @router.get("/leaderboard", response_model=LeaderboardResponse)
 def get_leaderboard(
+    mode: str = Query(
+        "standard",
+        description="Game mode to filter by",
+    ),
     leaderboard_service: LeaderboardService = Depends(get_leaderboard_service),
 ) -> LeaderboardResponse:
     """Get top 10 leaderboard entries.
-    
+
     Args:
+        mode: Game mode to filter by (default: "standard")
         leaderboard_service: Leaderboard service (injected)
-        
+
     Returns:
         LeaderboardResponse with top 10 entries
     """
-    logger.info("Getting leaderboard")
-    entries = leaderboard_service.get_top_10()
+    logger.info("Getting leaderboard", mode=mode)
+    entries = leaderboard_service.get_top_10(mode=mode)
 
     return LeaderboardResponse(
         entries=[
@@ -311,22 +336,23 @@ def submit_score(
     leaderboard_service: LeaderboardService = Depends(get_leaderboard_service),
 ) -> ScoreSubmitResponse:
     """Submit a completed round's score to the leaderboard.
-    
+
     Args:
         request: Score submission request
         leaderboard_service: Leaderboard service (injected)
-        
+
     Returns:
         ScoreSubmitResponse with rank and message
-        
+
     Raises:
         HTTPException: 400 if round not complete, 409 if already submitted/too low
     """
     log = logger.bind(round_id=request.round_id)
-    log.info("Submitting score to leaderboard")
+    log.info("Submitting score to leaderboard", mode=request.mode)
 
     success, rank, message, qualified = leaderboard_service.submit_score(
-        request.round_id
+        request.round_id,
+        mode=request.mode,
     )
 
     if not success:
@@ -342,3 +368,61 @@ def submit_score(
         message=message,
         qualified=qualified,
     )
+
+
+@router.get("/categories")
+def get_categories(
+    db: Session = Depends(get_db),
+) -> list[str]:
+    """Get list of available question categories.
+
+    Returns:
+        List of distinct category names (excluding null values)
+    """
+    logger.info("Getting available categories")
+
+    from sqlalchemy import distinct, select
+
+    stmt = (
+        select(distinct(Question.category))
+        .where(Question.category.isnot(None))
+        .order_by(Question.category)
+    )
+    categories = db.execute(stmt).scalars().all()
+
+    return list(categories)
+
+
+@router.post("/questions/suggest")
+def suggest_question(
+    request: SuggestedQuestionRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Submit a question suggestion for review.
+
+    Args:
+        request: Suggested question data
+        db: Database session (injected)
+
+    Returns:
+        Success message
+    """
+    log = logger.bind(player_name=request.player_name)
+    log.info("Received question suggestion")
+
+    suggested_question = SuggestedQuestion(
+        player_name=request.player_name,
+        question_text=request.question_text,
+        latitude=request.latitude,
+        longitude=request.longitude,
+        hint=request.hint,
+        category=request.category,
+        status="pending",
+    )
+
+    db.add(suggested_question)
+    db.commit()
+
+    log.info("Question suggestion saved for review")
+
+    return {"success": True, "message": "Question submitted for review"}

@@ -56,20 +56,31 @@ class GameService:
         self.db = db
         self.scorer = scoring_strategy or default_scorer
 
-    def start_round(self, player_name: str) -> tuple[Round, Question]:
+    def start_round(
+        self,
+        player_name: str,
+        mode: str = "standard",
+        category: str | None = None,
+    ) -> tuple[Round, Question]:
         """Start a new round with the first question.
-        
+
         Args:
             player_name: Name of the player
-            
+            mode: Game mode (default: "standard")
+            category: Optional category filter
+
         Returns:
             Tuple of (created Round, first Question)
         """
         log = logger.bind(player_name=player_name)
-        log.info("Starting new round")
+        log.info("Starting new round", mode=mode, category=category)
 
         # Create round
-        round_obj = Round(player_name=player_name.strip())
+        round_obj = Round(
+            player_name=player_name.strip(),
+            mode=mode,
+            category=category,
+        )
         self.db.add(round_obj)
         self.db.commit()
         self.db.refresh(round_obj)
@@ -77,7 +88,7 @@ class GameService:
         log = log.bind(round_id=round_obj.id)
 
         # Get first question
-        question = self._get_random_question(exclude_ids=[])
+        question = self._get_random_question(exclude_ids=[], category=category)
         log.info(
             "Round started",
             question_id=question.id,
@@ -86,12 +97,17 @@ class GameService:
 
         return round_obj, question
 
-    def get_next_question(self, round_obj: Round) -> Question | None:
+    def get_next_question(
+        self,
+        round_obj: Round,
+        category: str | None = None,
+    ) -> Question | None:
         """Get the next question for an existing round.
-        
+
         Args:
             round_obj: The current round
-            
+            category: Optional category filter
+
         Returns:
             Next Question or None if round is complete
         """
@@ -126,7 +142,7 @@ class GameService:
             return None
 
         # Get next question
-        question = self._get_random_question(exclude_ids=used_ids)
+        question = self._get_random_question(exclude_ids=used_ids, category=category)
         log.info(
             "Next question retrieved",
             question_id=question.id,
@@ -214,21 +230,28 @@ class GameService:
 
         return answer
 
-    def _get_random_question(self, exclude_ids: list[int]) -> Question:
+    def _get_random_question(
+        self,
+        exclude_ids: list[int],
+        category: str | None = None,
+    ) -> Question:
         """Get a random question excluding specified IDs.
-        
+
         Args:
             exclude_ids: List of question IDs to exclude
-            
+            category: Optional category filter
+
         Returns:
             Random Question
-            
+
         Raises:
             ValueError: If no questions available
         """
         query = select(Question)
         if exclude_ids:
             query = query.where(~Question.id.in_(exclude_ids))
+        if category:
+            query = query.where(Question.category == category)
 
         questions = self.db.execute(query).scalars().all()
 

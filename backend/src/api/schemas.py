@@ -50,6 +50,8 @@ class RoundResponse(BaseModel):
     total_questions: int = 10
     question: QuestionResponse
     timer_starts_at: datetime
+    mode: str = "standard"
+    category: str | None = None
 
 
 class RoundSummary(BaseModel):
@@ -108,6 +110,7 @@ class LeaderboardResponse(BaseModel):
 class ScoreSubmitRequest(BaseModel):
     """Request to submit score to leaderboard."""
     round_id: str
+    mode: str = "standard"
 
 
 class ScoreSubmitResponse(BaseModel):
@@ -116,6 +119,18 @@ class ScoreSubmitResponse(BaseModel):
     rank: int | None = None
     message: str
     qualified: bool
+
+
+# ============= Suggested Question Schemas =============
+
+class SuggestedQuestionRequest(BaseModel):
+    """Request to suggest a new question."""
+    player_name: str
+    question_text: str
+    latitude: float
+    longitude: float
+    hint: str | None = None
+    category: str | None = None
 
 
 # ============= Error Schemas =============
