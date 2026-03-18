@@ -281,10 +281,11 @@ export function useGame(): UseGameReturn {
     // For non-standard modes, always fetch next question (no auto-end)
     // Game ends via global timer (timed modes) or Finish button (endless)
     const playerName = sessionStorage.getItem('playerName') || 'Player';
-    console.log('[useGame] Fetching next question for round', gameState.round.id);
+    const category = gameState.category || null;
+    console.log('[useGame] Fetching next question for round', gameState.round.id, { category });
 
     try {
-      const nextQuestionData = await getNextQuestion(gameState.round.id, playerName);
+      const nextQuestionData = await getNextQuestion(gameState.round.id, playerName, category);
       console.log('[useGame] Next question received', nextQuestionData.question);
 
       setGameState(prev => ({

@@ -71,45 +71,6 @@ const CATEGORY_OPTIONS: CategoryOption[] = [
   { id: 'capitals', icon: '🗽', title: 'Capitals' },
 ];
 
-// Full color configuration for each mode
-const modeConfig: Record<GameMode, { outline: string; border: string; bg: string; text: string; button: string }> = {
-  standard: {
-    outline: 'outline-green-500',
-    border: 'border-green-500',
-    bg: 'bg-green-500/10',
-    text: 'text-green-400',
-    button: 'bg-green-600 hover:bg-green-700',
-  },
-  timed_1: {
-    outline: 'outline-orange-500',
-    border: 'border-orange-500',
-    bg: 'bg-orange-500/10',
-    text: 'text-orange-400',
-    button: 'bg-orange-600 hover:bg-orange-700',
-  },
-  timed_3: {
-    outline: 'outline-blue-500',
-    border: 'border-blue-500',
-    bg: 'bg-blue-500/10',
-    text: 'text-blue-400',
-    button: 'bg-blue-600 hover:bg-blue-700',
-  },
-  timed_5: {
-    outline: 'outline-purple-500',
-    border: 'border-purple-500',
-    bg: 'bg-purple-500/10',
-    text: 'text-purple-400',
-    button: 'bg-purple-600 hover:bg-purple-700',
-  },
-  endless: {
-    outline: 'outline-gray-400',
-    border: 'border-gray-400',
-    bg: 'bg-gray-400/10',
-    text: 'text-gray-300',
-    button: 'bg-gray-600 hover:bg-gray-700',
-  },
-};
-
 export default function HomePage(_props: HomePageProps) {
   const [playerName, setPlayerName] = useState('');
   const [error, setError] = useState('');
@@ -147,10 +108,16 @@ export default function HomePage(_props: HomePageProps) {
 
   const handleModeSelect = (mode: GameMode) => {
     setSelectedMode(mode);
+    // Reset category when switching to non-standard mode
+    if (mode !== 'standard') {
+      setSelectedCategory(null);
+    }
   };
 
   const handleCategorySelect = (category: GameCategory) => {
     setSelectedCategory(category);
+    // Setting a category implies standard mode
+    setSelectedMode('standard');
   };
 
   return (
@@ -191,41 +158,35 @@ export default function HomePage(_props: HomePageProps) {
               <div className="mb-6">
                 <h3 className="mb-3 text-lg font-semibold">Select Game Mode</h3>
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                  {MODE_OPTIONS.map((mode) => {
-                    const isSelected = selectedMode === mode.id;
-                    const config = modeConfig[mode.id];
-                    return (
-                      <motion.button
-                        key={mode.id}
-                        type="button"
-                        onClick={() => handleModeSelect(mode.id)}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className={`
-                          relative flex flex-col items-center justify-center rounded-lg border-2 p-4 transition-all
-                          ${isSelected ? `${config.bg} ${config.border}` : 'bg-white/5 border-white/10'}
-                          ${isSelected ? `outline outline-2 ${config.outline} outline-offset-2` : ''}
-                        `}
-                      >
-                        <span className={`mb-2 text-3xl ${isSelected ? config.text : ''}`}>{mode.icon}</span>
-                        <span className={`text-sm font-semibold ${isSelected ? config.text : 'text-white'}`}>{mode.title}</span>
-                        <span className="mt-1 text-xs text-muted-foreground text-center">
-                          {mode.description}
-                        </span>
-                      </motion.button>
-                    );
-                  })}
+                  {MODE_OPTIONS.map((mode) => (
+                    <motion.button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => handleModeSelect(mode.id)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`
+                        relative flex flex-col items-center justify-center rounded-lg border-2 p-4 transition-all
+                        ${mode.color}
+                        ${selectedMode === mode.id ? 'ring-2 ring-primary ring-offset-2' : ''}
+                      `}
+                    >
+                      <span className="mb-2 text-3xl">{mode.icon}</span>
+                      <span className="text-sm font-semibold">{mode.title}</span>
+                      <span className="mt-1 text-xs text-muted-foreground text-center">
+                        {mode.description}
+                      </span>
+                    </motion.button>
+                  ))}
                 </div>
               </div>
 
-              {/* Category Selection */}
-              <div className="mb-6">
-                <h3 className="mb-3 text-lg font-semibold">Select Category (Optional)</h3>
-                <div className="flex gap-3 overflow-x-auto pb-2 p-2 -m-2">
-                  {CATEGORY_OPTIONS.map((category) => {
-                    const isSelected = selectedCategory === category.id;
-                    const config = modeConfig[selectedMode];
-                    return (
+              {/* Category Selection (only for standard mode) */}
+              {selectedMode === 'standard' && (
+                <div className="mb-6">
+                  <h3 className="mb-3 text-lg font-semibold">Select Category (Optional)</h3>
+                  <div className="flex gap-3 overflow-x-auto pb-2 p-2 -m-2">
+                    {CATEGORY_OPTIONS.map((category) => (
                       <motion.button
                         key={category.id}
                         type="button"
@@ -234,37 +195,39 @@ export default function HomePage(_props: HomePageProps) {
                         whileTap={{ scale: 0.95 }}
                         className={`
                           flex items-center gap-2 rounded-lg border-2 px-4 py-3 transition-all
-                          ${isSelected ? `${config.bg} ${config.border}` : 'border-border bg-muted hover:bg-accent'}
-                          ${isSelected ? `outline outline-2 ${config.outline} outline-offset-2` : ''}
+                          ${selectedCategory === category.id
+                            ? 'border-primary bg-primary/10 outline outline-2 outline-primary outline-offset-2'
+                            : 'border-border bg-muted hover:bg-accent'}
                         `}
                       >
-                        <span className={`text-2xl ${isSelected ? config.text : ''}`}>{category.icon}</span>
-                        <span className={`font-medium ${isSelected ? config.text : ''}`}>{category.title}</span>
+                        <span className="text-2xl">{category.icon}</span>
+                        <span className="font-medium">{category.title}</span>
                       </motion.button>
-                    );
-                  })}
-                  {/* Clear category option */}
-                  <motion.button
-                    type="button"
-                    onClick={() => handleCategorySelect(null)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={`
-                      flex items-center gap-2 rounded-lg border-2 px-4 py-3 transition-all
-                      ${selectedCategory === null ? `${modeConfig[selectedMode].bg} ${modeConfig[selectedMode].border}` : 'border-border bg-muted hover:bg-accent'}
-                      ${selectedCategory === null ? `outline outline-2 ${modeConfig[selectedMode].outline} outline-offset-2` : ''}
-                    `}
-                  >
-                    <span className={`text-2xl ${selectedCategory === null ? modeConfig[selectedMode].text : ''}`}>🎲</span>
-                    <span className={`font-medium ${selectedCategory === null ? modeConfig[selectedMode].text : ''}`}>All</span>
-                  </motion.button>
+                    ))}
+                    {/* Clear category option */}
+                    <motion.button
+                      type="button"
+                      onClick={() => handleCategorySelect(null)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`
+                        flex items-center gap-2 rounded-lg border-2 px-4 py-3 transition-all
+                        ${selectedCategory === null
+                          ? 'border-primary bg-primary/10 outline outline-2 outline-primary outline-offset-2'
+                          : 'border-border bg-muted hover:bg-accent'}
+                      `}
+                    >
+                      <span className="text-2xl">🎲</span>
+                      <span className="font-medium">All</span>
+                    </motion.button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <Button
                 type="submit"
                 disabled={!playerName.trim()}
-                className={`w-full ${modeConfig[selectedMode].button}`}
+                className="w-full"
               >
                 Start Game
               </Button>
@@ -291,11 +254,10 @@ export default function HomePage(_props: HomePageProps) {
             <div className="mt-6 rounded-lg bg-muted p-4">
               <p className="mb-2 text-sm font-semibold">How to play:</p>
               <ul className="list-inside list-disc text-sm text-muted-foreground">
-                <li>Choose a game mode: Classic (10 questions), Sprint (1 min), Race (3 min), Marathon (5 min), or Endless</li>
-                <li>Optionally select a category: Countries, Cities, Landmarks, Capitals, or All</li>
-                <li>For each question, click on the map where you think the location is</li>
-                <li>Points are awarded based on accuracy (how close) and speed (faster = more points)</li>
-                <li>Complete the round and submit your score to the leaderboard!</li>
+                <li>You'll get 10 geography questions</li>
+                <li>Click on the map where you think the location is</li>
+                <li>Points based on accuracy and speed</li>
+                <li>Submit your score to the leaderboard!</li>
               </ul>
             </div>
           </CardContent>

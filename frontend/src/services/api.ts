@@ -41,8 +41,11 @@ export const startRound = async (
   console.log('[API] startRound called with:', { playerName, mode, category });
   const params: Record<string, string> = { player_name: playerName };
   if (mode) params.mode = mode;
-  if (category) params.category = category;
-  
+  // Only include category if it's a non-empty string
+  if (category && category.trim() !== '') {
+    params.category = category;
+  }
+
   const response = await apiClient.get<RoundResponse>('/questions', { params });
   console.log('[API] startRound response:', response.data);
   return response.data;
@@ -53,15 +56,20 @@ export const startRound = async (
  */
 export const getNextQuestion = async (
   roundId: string,
-  playerName: string
+  playerName: string,
+  category?: string | null,
 ): Promise<RoundResponse> => {
-  console.log('[API] getNextQuestion called', { roundId, playerName });
-  const response = await apiClient.get<RoundResponse>('/questions', {
-    params: { 
-      player_name: playerName,
-      round_id: roundId 
-    },
-  });
+  console.log('[API] getNextQuestion called', { roundId, playerName, category });
+  const params: Record<string, string> = {
+    player_name: playerName,
+    round_id: roundId,
+  };
+  // Only include category if it's a non-empty string
+  if (category && category.trim() !== '') {
+    params.category = category;
+  }
+  
+  const response = await apiClient.get<RoundResponse>('/questions', { params });
   console.log('[API] getNextQuestion response:', response.data);
   return response.data;
 };

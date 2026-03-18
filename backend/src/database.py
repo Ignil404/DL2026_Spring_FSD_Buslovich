@@ -85,6 +85,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="Western Europe",
             time_limit=60,
+            category="countries",
         ),
         Question(
             text="Find Brazil on the map",
@@ -94,6 +95,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="South America",
             time_limit=60,
+            category="countries",
         ),
         Question(
             text="Where is Australia?",
@@ -103,6 +105,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="Southern Hemisphere",
             time_limit=60,
+            category="countries",
         ),
         Question(
             text="Where is the United States of America?",
@@ -112,6 +115,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="North America",
             time_limit=60,
+            category="countries",
         ),
         Question(
             text="Find Canada on the map",
@@ -121,6 +125,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="North of the USA",
             time_limit=60,
+            category="countries",
         ),
         Question(
             text="Where is Russia?",
@@ -130,6 +135,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="Largest country in the world",
             time_limit=60,
+            category="countries",
         ),
         Question(
             text="Find India on the map",
@@ -139,6 +145,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="South Asia",
             time_limit=60,
+            category="countries",
         ),
         Question(
             text="Where is China?",
@@ -148,6 +155,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="Eastern Asia",
             time_limit=60,
+            category="countries",
         ),
         # === COUNTRIES - MEDIUM ===
         Question(
@@ -158,6 +166,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Northeastern Africa",
             time_limit=45,
+            category="countries",
         ),
         Question(
             text="Where is Argentina?",
@@ -167,6 +176,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Southern South America",
             time_limit=45,
+            category="countries",
         ),
         Question(
             text="Find Saudi Arabia on the map",
@@ -176,6 +186,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Middle East",
             time_limit=45,
+            category="countries",
         ),
         Question(
             text="Where is South Africa?",
@@ -185,6 +196,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Southern tip of Africa",
             time_limit=45,
+            category="countries",
         ),
         Question(
             text="Find Indonesia on the map",
@@ -194,6 +206,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Southeast Asia archipelago",
             time_limit=45,
+            category="countries",
         ),
         Question(
             text="Where is Mexico?",
@@ -203,6 +216,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="North America, south of the USA",
             time_limit=45,
+            category="countries",
         ),
         Question(
             text="Find Turkey on the map",
@@ -212,6 +226,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Between Europe and Asia",
             time_limit=45,
+            category="countries",
         ),
         Question(
             text="Where is Spain?",
@@ -221,6 +236,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Southwestern Europe",
             time_limit=45,
+            category="countries",
         ),
         # === COUNTRIES - HARD ===
         Question(
@@ -231,6 +247,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Central Asia",
             time_limit=30,
+            category="countries",
         ),
         Question(
             text="Where is Papua New Guinea?",
@@ -240,6 +257,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="North of Australia",
             time_limit=30,
+            category="countries",
         ),
         Question(
             text="Find Chile on the map",
@@ -249,6 +267,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Long narrow country in South America",
             time_limit=30,
+            category="countries",
         ),
         Question(
             text="Where is Madagascar?",
@@ -258,6 +277,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Island nation off the coast of Africa",
             time_limit=30,
+            category="countries",
         ),
         Question(
             text="Find Iceland on the map",
@@ -267,6 +287,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="North Atlantic island nation",
             time_limit=30,
+            category="countries",
         ),
         Question(
             text="Where is New Zealand?",
@@ -276,6 +297,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Southwest Pacific Ocean",
             time_limit=30,
+            category="countries",
         ),
         # === CITIES - EASY ===
         Question(
@@ -286,6 +308,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="Capital of the UK",
             time_limit=60,
+            category="cities",
         ),
         Question(
             text="Find New York City on the map",
@@ -295,6 +318,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="East Coast, USA",
             time_limit=60,
+            category="cities",
         ),
         Question(
             text="Where is Paris, France?",
@@ -304,6 +328,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="City of Light",
             time_limit=60,
+            category="cities",
         ),
         Question(
             text="Find Rome, Italy on the map",
@@ -313,6 +338,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="The Eternal City",
             time_limit=60,
+            category="cities",
         ),
         # === CITIES - MEDIUM ===
         Question(
@@ -323,6 +349,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Capital of Japan",
             time_limit=45,
+            category="cities",
         ),
         Question(
             text="Find Berlin, Germany on the map",
@@ -332,6 +359,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Capital of Germany",
             time_limit=45,
+            category="cities",
         ),
         Question(
             text="Where is Moscow, Russia?",
@@ -341,6 +369,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Capital of Russia",
             time_limit=45,
+            category="cities",
         ),
         Question(
             text="Find Sydney, Australia on the map",
@@ -350,6 +379,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Largest city in Australia",
             time_limit=45,
+            category="cities",
         ),
         Question(
             text="Where is Cairo, Egypt?",
@@ -359,6 +389,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Capital of Egypt",
             time_limit=45,
+            category="cities",
         ),
         Question(
             text="Find Buenos Aires, Argentina on the map",
@@ -368,6 +399,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Capital of Argentina",
             time_limit=45,
+            category="cities",
         ),
         Question(
             text="Where is Bangkok, Thailand?",
@@ -377,6 +409,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Capital of Thailand",
             time_limit=45,
+            category="cities",
         ),
         Question(
             text="Find Istanbul, Turkey on the map",
@@ -386,6 +419,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Largest city in Turkey",
             time_limit=45,
+            category="cities",
         ),
         # === CITIES - HARD ===
         Question(
@@ -396,6 +430,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Northernmost capital in the world",
             time_limit=30,
+            category="cities",
         ),
         Question(
             text="Find Kathmandu, Nepal on the map",
@@ -405,6 +440,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Capital of Nepal",
             time_limit=30,
+            category="cities",
         ),
         Question(
             text="Where is Nairobi, Kenya?",
@@ -414,6 +450,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Capital of Kenya",
             time_limit=30,
+            category="cities",
         ),
         Question(
             text="Find Ulaanbaatar, Mongolia on the map",
@@ -423,6 +460,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Capital of Mongolia",
             time_limit=30,
+            category="cities",
         ),
         Question(
             text="Where is Wellington, New Zealand?",
@@ -432,6 +470,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Southernmost capital in the world",
             time_limit=30,
+            category="cities",
         ),
         # === LANDMARKS - EASY ===
         Question(
@@ -442,6 +481,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="Paris, France",
             time_limit=60,
+            category="landmarks",
         ),
         Question(
             text="Find the Statue of Liberty on the map",
@@ -451,6 +491,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="New York Harbor, USA",
             time_limit=60,
+            category="landmarks",
         ),
         Question(
             text="Where is the Great Pyramid of Giza?",
@@ -460,6 +501,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="Near Cairo, Egypt",
             time_limit=60,
+            category="landmarks",
         ),
         Question(
             text="Find the Colosseum on the map",
@@ -469,6 +511,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="Rome, Italy",
             time_limit=60,
+            category="landmarks",
         ),
         Question(
             text="Where is the Taj Mahal?",
@@ -478,6 +521,7 @@ def seed_questions() -> None:
             difficulty="easy",
             hint="Agra, India",
             time_limit=60,
+            category="landmarks",
         ),
         # === LANDMARKS - MEDIUM ===
         Question(
@@ -488,6 +532,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Northern China",
             time_limit=45,
+            category="landmarks",
         ),
         Question(
             text="Where is Machu Picchu?",
@@ -497,6 +542,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Ancient Inca city in Peru",
             time_limit=45,
+            category="landmarks",
         ),
         Question(
             text="Find the Sydney Opera House on the map",
@@ -506,6 +552,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Sydney, Australia",
             time_limit=45,
+            category="landmarks",
         ),
         Question(
             text="Where is Stonehenge?",
@@ -515,6 +562,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="England, UK",
             time_limit=45,
+            category="landmarks",
         ),
         Question(
             text="Find the Christ the Redeemer statue on the map",
@@ -524,6 +572,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Rio de Janeiro, Brazil",
             time_limit=45,
+            category="landmarks",
         ),
         Question(
             text="Where is the Leaning Tower of Pisa?",
@@ -533,6 +582,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Italy",
             time_limit=45,
+            category="landmarks",
         ),
         Question(
             text="Find the Brandenburg Gate on the map",
@@ -542,6 +592,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Berlin, Germany",
             time_limit=45,
+            category="landmarks",
         ),
         Question(
             text="Where is Angkor Wat?",
@@ -551,6 +602,7 @@ def seed_questions() -> None:
             difficulty="medium",
             hint="Cambodia",
             time_limit=45,
+            category="landmarks",
         ),
         # === LANDMARKS - HARD ===
         Question(
@@ -561,6 +613,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Ancient city in Jordan",
             time_limit=30,
+            category="landmarks",
         ),
         Question(
             text="Where is Mount Fuji?",
@@ -570,6 +623,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Highest mountain in Japan",
             time_limit=30,
+            category="landmarks",
         ),
         Question(
             text="Find the Galapagos Islands on the map",
@@ -579,6 +633,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Pacific Ocean, near Ecuador",
             time_limit=30,
+            category="landmarks",
         ),
         Question(
             text="Where is Uluru (Ayers Rock)?",
@@ -588,6 +643,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Central Australia",
             time_limit=30,
+            category="landmarks",
         ),
         Question(
             text="Find the Moai statues on the map",
@@ -597,6 +653,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Easter Island, Chile",
             time_limit=30,
+            category="landmarks",
         ),
         Question(
             text="Where is the Matterhorn?",
@@ -606,6 +663,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Swiss Alps",
             time_limit=30,
+            category="landmarks",
         ),
         Question(
             text="Find Borobudur on the map",
@@ -615,6 +673,7 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Buddhist temple in Indonesia",
             time_limit=30,
+            category="landmarks",
         ),
         Question(
             text="Where is Victoria Falls?",
@@ -624,21 +683,75 @@ def seed_questions() -> None:
             difficulty="hard",
             hint="Border of Zambia and Zimbabwe",
             time_limit=30,
+            category="landmarks",
+        ),
+        # === CAPITALS - EASY ===
+        Question(
+            text="Where is Paris, the capital of France?",
+            location_type="city",
+            latitude=48.8566,
+            longitude=2.3522,
+            difficulty="easy",
+            hint="Western Europe",
+            time_limit=60,
+            category="capitals",
+        ),
+        # === CAPITALS - MEDIUM ===
+        Question(
+            text="Find Tokyo, capital of Japan",
+            location_type="city",
+            latitude=35.6762,
+            longitude=139.6503,
+            difficulty="medium",
+            hint="East Asia",
+            time_limit=45,
+            category="capitals",
+        ),
+        Question(
+            text="Where is Washington D.C.?",
+            location_type="city",
+            latitude=38.9072,
+            longitude=-77.0369,
+            difficulty="medium",
+            hint="East Coast, USA",
+            time_limit=45,
+            category="capitals",
         ),
     ]
 
     db = SessionLocal()
     try:
         from sqlalchemy import select
-        stmt = select(Question)
-        count = len(db.execute(stmt).scalars().all())
-        if count > 0:
-            print("Questions already seeded, skipping.")
-            return
         
+        # Check if questions exist and if they have categories
+        stmt = select(Question)
+        all_questions = db.execute(stmt).scalars().all()
+        
+        if len(all_questions) > 0:
+            # Check if any questions have null category
+            questions_without_category = sum(1 for q in all_questions if q.category is None)
+            
+            if questions_without_category > 0:
+                msg = f"Found {questions_without_category} questions without category"
+                print(msg + ". Re-seeding...")
+                db.query(Question).delete()
+                db.commit()
+                # Continue to seed fresh
+            else:
+                print("Questions already seeded with categories, skipping.")
+                return
+        
+        # Log all questions with their categories after seeding
         db.add_all(sample_questions)
         db.commit()
         print(f"Seeded {len(sample_questions)} questions successfully!")
+        
+        # Print all questions with categories for debugging
+        questions = db.query(Question).all()
+        print("\nQuestion categories in database:")
+        for q in questions:
+            text_preview = q.text[:30].replace('\n', ' ')
+            print(f"  ID: {q.id:3d}, category: {q.category or 'None':12s}, text: {text_preview}...")
     finally:
         db.close()
 

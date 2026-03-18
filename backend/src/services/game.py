@@ -250,6 +250,8 @@ class GameService:
         Raises:
             ValueError: If no questions available
         """
+        logger.info("Getting random question", category=category, exclude_ids=exclude_ids)
+        
         query = select(Question)
         if exclude_ids:
             query = query.where(~Question.id.in_(exclude_ids))
@@ -257,6 +259,20 @@ class GameService:
             query = query.where(Question.category == category)
 
         questions = self.db.execute(query).scalars().all()
+        
+        # Log available questions count
+        logger.info("Available questions for category", count=len(questions), category=category)
+
+        # Fallback: if category filter returns no results, try without category
+        if not questions and category:
+            logger.warning(
+                "No questions found for category, falling back to all",
+                category=category,
+            )
+            query = select(Question)
+            if exclude_ids:
+                query = query.where(~Question.id.in_(exclude_ids))
+            questions = self.db.execute(query).scalars().all()
 
         if not questions:
             raise ValueError("No questions available in database")

@@ -20,6 +20,7 @@ class Question(Base):
     difficulty = Column(String(20), nullable=False)  # easy, medium, hard
     hint = Column(String(200), nullable=True)
     time_limit = Column(Integer, nullable=False)  # 30, 45, or 60 seconds
+    category = Column(String(50), nullable=True, index=True)  # countries, cities, landmarks
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Validation constraints
@@ -60,4 +61,5 @@ class Question(Base):
             "difficulty": self.difficulty,
             "hint": self.hint,
             "time_limit": self.time_limit,
+            "category": self.category,
         }
