@@ -2,6 +2,10 @@
  * Shared TypeScript types for Geography Quiz
  */
 
+// Game modes and categories
+export type GameMode = 'standard' | 'timed_1' | 'timed_3' | 'timed_5' | 'endless';
+export type GameCategory = 'countries' | 'cities' | 'landmarks' | 'capitals' | null;
+
 // Question types
 export interface Question {
   id: number;
@@ -49,6 +53,8 @@ export interface Round {
   questions_answered: number;
   total_score: number;
   answers: Answer[];
+  mode?: string;
+  category?: string | null;
 }
 
 export interface RoundResponse {
@@ -57,6 +63,8 @@ export interface RoundResponse {
   total_questions: number;
   question: Question;
   timer_starts_at: string;
+  mode?: string;
+  category?: string | null;
 }
 
 // Leaderboard types
@@ -85,6 +93,7 @@ export interface AnswerRequest {
 
 export interface ScoreSubmitRequest {
   round_id: string;
+  mode?: string;
 }
 
 export interface ScoreSubmitResponse {
@@ -103,4 +112,6 @@ export interface GameState {
   isPlaying: boolean;
   isComplete: boolean;
   error: string | null;
+  mode: GameMode;
+  category: GameCategory;
 }

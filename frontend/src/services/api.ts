@@ -33,11 +33,17 @@ apiClient.interceptors.response.use(
 /**
  * Start a new round or get next question
  */
-export const startRound = async (playerName: string): Promise<RoundResponse> => {
-  console.log('[API] startRound called with playerName:', playerName);
-  const response = await apiClient.get<RoundResponse>('/questions', {
-    params: { player_name: playerName },
-  });
+export const startRound = async (
+  playerName: string,
+  mode?: string,
+  category?: string | null,
+): Promise<RoundResponse> => {
+  console.log('[API] startRound called with:', { playerName, mode, category });
+  const params: Record<string, string> = { player_name: playerName };
+  if (mode) params.mode = mode;
+  if (category) params.category = category;
+  
+  const response = await apiClient.get<RoundResponse>('/questions', { params });
   console.log('[API] startRound response:', response.data);
   return response.data;
 };
@@ -114,9 +120,13 @@ export const getLeaderboard = async (): Promise<LeaderboardResponse> => {
 /**
  * Submit score to leaderboard
  */
-export const submitScore = async (roundId: string): Promise<ScoreSubmitResponse> => {
+export const submitScore = async (
+  roundId: string,
+  mode?: string,
+): Promise<ScoreSubmitResponse> => {
   const response = await apiClient.post<ScoreSubmitResponse>('/leaderboard', {
     round_id: roundId,
+    mode: mode || 'standard',
   });
   return response.data;
 };

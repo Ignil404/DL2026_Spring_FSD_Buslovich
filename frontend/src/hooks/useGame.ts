@@ -4,7 +4,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { startRound, submitAnswer, getRoundSummary, getNextQuestion } from '../services/api';
-import type { GameState } from '../types';
+import type { GameState, GameMode, GameCategory } from '../types';
 
 interface UseGameReturn {
   gameState: GameState;
@@ -22,6 +22,9 @@ export function useGame(): UseGameReturn {
   const [gameState, setGameState] = useState<GameState>(() => {
     // Try to restore from sessionStorage
     const saved = sessionStorage.getItem('gameState');
+    const savedMode = sessionStorage.getItem('gameMode') as GameMode || 'standard';
+    const savedCategory = sessionStorage.getItem('gameCategory') as GameCategory || null;
+    
     if (saved) {
       console.log('[useGame] Restoring state from sessionStorage:', saved);
       try {
@@ -34,7 +37,7 @@ export function useGame(): UseGameReturn {
           questionId: parsed.currentQuestion?.id,
           isPlaying: parsed.isPlaying,
         });
-        
+
         // Detect broken state: isPlaying but no round
         if (parsed.isPlaying && !parsed.round) {
           console.warn('[useGame] Detected broken state (isPlaying but no round), clearing and reinitializing');
@@ -49,10 +52,16 @@ export function useGame(): UseGameReturn {
             isPlaying: false,
             isComplete: false,
             error: null,
+            mode: savedMode,
+            category: savedCategory,
           };
         }
-        
-        return parsed;
+
+        return {
+          ...parsed,
+          mode: parsed.mode || savedMode,
+          category: parsed.category || savedCategory,
+        };
       } catch (e) {
         console.error('[useGame] Failed to parse saved state:', e);
         sessionStorage.removeItem('gameState');
@@ -64,6 +73,8 @@ export function useGame(): UseGameReturn {
           isPlaying: false,
           isComplete: false,
           error: null,
+          mode: savedMode,
+          category: savedCategory,
         };
       }
     }
@@ -76,6 +87,8 @@ export function useGame(): UseGameReturn {
       isPlaying: false,
       isComplete: false,
       error: null,
+      mode: savedMode,
+      category: savedCategory,
     };
   });
 
@@ -96,7 +109,9 @@ export function useGame(): UseGameReturn {
   // Start new round mutation
   const startRoundMutation = useMutation({
     mutationFn: async (playerName: string) => {
-      const response = await startRound(playerName);
+      const mode = sessionStorage.getItem('gameMode') || 'standard';
+      const category = sessionStorage.getItem('gameCategory') || null;
+      const response = await startRound(playerName, mode, category || undefined);
       return response;
     },
     onSuccess: (data) => {
@@ -119,6 +134,8 @@ export function useGame(): UseGameReturn {
         isPlaying: true,
         isComplete: false,
         error: null,
+        mode: (data.mode as GameMode) || 'standard',
+        category: data.category as GameCategory || null,
       });
       setCurrentQuestionNumber(1);
       setTimerStartTime(Date.now());
@@ -243,6 +260,8 @@ export function useGame(): UseGameReturn {
           isPlaying: false,
           isComplete: true,
           error: null,
+          mode: prev.mode,
+          category: prev.category,
         }));
         console.log('[useGame] State updated with roundSummary');
       } catch (error) {
@@ -288,12 +307,16 @@ export function useGame(): UseGameReturn {
       isPlaying: false,
       isComplete: false,
       error: null,
+      mode: 'standard',
+      category: null,
     });
     setCurrentQuestionNumber(1);
     setTimerStartTime(null);
     setCurrentScore(0);
     sessionStorage.removeItem('gameState');
     sessionStorage.removeItem('playerName');
+    sessionStorage.removeItem('gameMode');
+    sessionStorage.removeItem('gameCategory');
   }, []);
 
   return {
