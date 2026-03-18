@@ -3,7 +3,7 @@
  * Restyled with Tailwind CSS and shadcn/ui
  */
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -142,6 +142,16 @@ export default function LeaderboardPage() {
               >
                 Play Now
               </Button>
+            </div>
+
+            {/* Footer link */}
+            <div className="mt-4 text-center">
+              <Link
+                to="/suggest"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                💡 Suggest a Question
+              </Link>
             </div>
           </CardContent>
         </Card>

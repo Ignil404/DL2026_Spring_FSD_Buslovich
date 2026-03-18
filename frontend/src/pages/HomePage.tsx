@@ -185,7 +185,7 @@ export default function HomePage(_props: HomePageProps) {
               {selectedMode === 'standard' && (
                 <div className="mb-6">
                   <h3 className="mb-3 text-lg font-semibold">Select Category (Optional)</h3>
-                  <div className="flex gap-3 overflow-x-auto pb-2">
+                  <div className="flex gap-3 overflow-x-auto pb-2 p-2 -m-2">
                     {CATEGORY_OPTIONS.map((category) => (
                       <motion.button
                         key={category.id}
@@ -195,8 +195,8 @@ export default function HomePage(_props: HomePageProps) {
                         whileTap={{ scale: 0.95 }}
                         className={`
                           flex items-center gap-2 rounded-lg border-2 px-4 py-3 transition-all
-                          ${selectedCategory === category.id 
-                            ? 'border-primary bg-primary/10 ring-2 ring-primary ring-offset-2' 
+                          ${selectedCategory === category.id
+                            ? 'border-primary bg-primary/10 outline outline-2 outline-primary outline-offset-2'
                             : 'border-border bg-muted hover:bg-accent'}
                         `}
                       >
@@ -212,8 +212,8 @@ export default function HomePage(_props: HomePageProps) {
                       whileTap={{ scale: 0.95 }}
                       className={`
                         flex items-center gap-2 rounded-lg border-2 px-4 py-3 transition-all
-                        ${selectedCategory === null 
-                          ? 'border-primary bg-primary/10 ring-2 ring-primary ring-offset-2' 
+                        ${selectedCategory === null
+                          ? 'border-primary bg-primary/10 outline outline-2 outline-primary outline-offset-2'
                           : 'border-border bg-muted hover:bg-accent'}
                       `}
                     >
@@ -234,6 +234,15 @@ export default function HomePage(_props: HomePageProps) {
             </form>
 
             <div className="mt-6 text-center">
+              <Link
+                to="/suggest"
+                className="block text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                💡 Suggest a Question
+              </Link>
+            </div>
+
+            <div className="mt-4 text-center">
               <Link
                 to="/leaderboard"
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"

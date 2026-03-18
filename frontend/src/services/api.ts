@@ -141,4 +141,20 @@ export const submitScore = async (
   return response.data;
 };
 
+/**
+ * Suggest a new question
+ */
+export const suggestQuestion = async (data: {
+  player_name: string;
+  question_text: string;
+  latitude: number;
+  longitude: number;
+  hint?: string;
+  category?: string;
+  difficulty?: string;
+}) => {
+  const response = await apiClient.post('/questions/suggest', data);
+  return response.data;
+};
+
 export default apiClient;

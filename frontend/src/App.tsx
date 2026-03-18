@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HomePage from './pages/HomePage';
 import GamePage from './pages/GamePage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import SuggestPage from './pages/SuggestPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useGame } from './hooks/useGame';
 
@@ -17,6 +18,7 @@ function AppContent() {
       <Route path="/" element={<HomePage onStartGame={startNewRound} />} />
       <Route path="/game" element={<GamePage />} />
       <Route path="/leaderboard" element={<LeaderboardPage />} />
+      <Route path="/suggest" element={<SuggestPage />} />
     </Routes>
   );
 }
