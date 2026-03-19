@@ -15,6 +15,7 @@ interface UseGameReturn {
   finishGame: () => Promise<void>;
   resetGame: () => void;
   isLoading: boolean;
+  isSubmittingAnswer: boolean;
   error: string | null;
   currentQuestionNumber: number;
   currentScore: number;
@@ -166,18 +167,24 @@ export function useGame(): UseGameReturn {
       lon: number;
       timeTaken: number;
     }) => {
+      console.log('[useGame] submitAnswerMutation.mutationFn called', { roundId, questionId, lat, lon, timeTaken });
       return await submitAnswer(roundId, questionId, lat, lon, timeTaken);
     },
     onSuccess: (data) => {
+      console.log('[useGame] submitAnswerMutation.onSuccess', data);
       // Update current score
       setCurrentScore(prev => prev + data.final_score);
-      
-      setGameState(prev => ({
-        ...prev,
-        currentAnswer: data,
-      }));
+
+      setGameState(prev => {
+        console.log('[useGame] Setting currentAnswer', data);
+        return {
+          ...prev,
+          currentAnswer: data,
+        };
+      });
     },
     onError: (error) => {
+      console.error('[useGame] submitAnswerMutation.onError', error);
       setGameState(prev => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Failed to submit answer',
@@ -224,6 +231,11 @@ export function useGame(): UseGameReturn {
       const errorMsg = '[useGame] No round found - round must be created before submitting answers';
       console.error(errorMsg);
       setGameState(prev => ({ ...prev, error: errorMsg }));
+      
+      // Skip to next question after delay to allow user to see error
+      setTimeout(() => {
+        console.log('[useGame] Auto-skipping to next question after error');
+      }, 2000);
       return;
     }
 
@@ -231,6 +243,9 @@ export function useGame(): UseGameReturn {
       const errorMsg = '[useGame] No current question found';
       console.error(errorMsg);
       setGameState(prev => ({ ...prev, error: errorMsg }));
+      setTimeout(() => {
+        console.log('[useGame] Auto-skipping to next question after error (no question)');
+      }, 2000);
       return;
     }
 
@@ -255,16 +270,20 @@ export function useGame(): UseGameReturn {
   }, [gameState.round, gameState.currentQuestion, timerStartTime, submitAnswerMutation]);
 
   const goToNextQuestion = useCallback(async () => {
-    console.log('[useGame] goToNextQuestion called', { currentQuestionNumber });
+    console.log('[useGame] goToNextQuestion called', { currentQuestionNumber, hasRound: !!gameState.round });
 
     if (!gameState.round) {
       console.error('[useGame] No round found');
+      setGameState(prev => ({
+        ...prev,
+        error: 'No round found - game may have been reset',
+      }));
       return;
     }
 
     // Only end game at 10 questions for standard mode
     const isStandardMode = gameState.mode === 'standard' || !gameState.mode;
-    
+
     if (isStandardMode && currentQuestionNumber >= 10) {
       console.log('[useGame] Last question reached (standard mode), fetching round summary');
       // Fetch round summary
@@ -305,12 +324,21 @@ export function useGame(): UseGameReturn {
       const nextQuestionData = await getNextQuestion(gameState.round.id, playerName, category);
       console.log('[useGame] Next question received', nextQuestionData.question);
 
-      setGameState(prev => ({
-        ...prev,
-        currentQuestion: nextQuestionData.question,
-        currentAnswer: null,
-      }));
-      setCurrentQuestionNumber(prev => prev + 1);
+      setGameState(prev => {
+        console.log('[useGame] Updating state with next question');
+        return {
+          ...prev,
+          currentQuestion: nextQuestionData.question,
+          currentAnswer: null,
+          isPlaying: true,
+          error: null,
+        };
+      });
+      setCurrentQuestionNumber(prev => {
+        const newNum = prev + 1;
+        console.log('[useGame] Incrementing question number:', prev, '->', newNum);
+        return newNum;
+      });
       setTimerStartTime(Date.now());
     } catch (error) {
       console.error('[useGame] Failed to get next question', error);
@@ -319,7 +347,7 @@ export function useGame(): UseGameReturn {
         error: error instanceof Error ? error.message : 'Failed to load next question',
       }));
     }
-  }, [gameState.round, gameState.mode, currentQuestionNumber]);
+  }, [gameState.round, gameState.mode, currentQuestionNumber, setGameState]);
 
   // Finish game mutation (for timed/endless modes)
   const finishGameMutation = useMutation({
@@ -390,6 +418,7 @@ export function useGame(): UseGameReturn {
     finishGame,
     resetGame,
     isLoading: startRoundMutation.isPending || submitAnswerMutation.isPending,
+    isSubmittingAnswer: submitAnswerMutation.isPending,
     error: gameState.error,
     currentQuestionNumber,
     currentScore,

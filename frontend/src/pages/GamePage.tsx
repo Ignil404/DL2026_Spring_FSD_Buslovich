@@ -9,6 +9,14 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import GameMap from '@/components/GameMap';
 import { useGame } from '../hooks/useGame';
 import { submitScore } from '../services/api';
@@ -16,19 +24,12 @@ import type { GameMode } from '@/types';
 
 const TIMER_SECONDS = 30;
 
-// Normalize longitude to range [-180, 180]
-function normalizeLon(lon: number): number {
-  while (lon > 180) lon -= 360;
-  while (lon < -180) lon += 360;
-  return lon;
-}
-
 // Helper function to get global time limit for timed modes
 function getTimeLimitForMode(mode: GameMode): number | null {
   if (mode === 'timed_1') return 60;
   if (mode === 'timed_3') return 180;
   if (mode === 'timed_5') return 300;
-  return null; // standard and endless have no global timer
+  return null;
 }
 
 export default function GamePage() {
@@ -37,30 +38,29 @@ export default function GamePage() {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
   const [globalTimeLeft, setGlobalTimeLeft] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
-  const globalTimerRef = useRef<ReturnType<typeof setInterval>>();
+  const isProcessingRef = useRef(false);
+  const autoSubmitTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const {
     gameState,
+    setGameState,
     startNewRound,
     submitAnswerClick,
     goToNextQuestion,
     finishGame,
     resetGame,
     isLoading,
+    isSubmittingAnswer,
     error,
     currentQuestionNumber,
     currentScore,
   } = useGame();
 
-  // Store finishGame in a ref to avoid stale closure issues in the timer interval
-  const finishGameRef = useRef(finishGame);
-  useEffect(() => {
-    finishGameRef.current = finishGame;
-  }, [finishGame]);
-
+  const questionTimeLimit = gameState.currentQuestion?.time_limit || TIMER_SECONDS;
   const question = gameState.currentQuestion;
   const gameMode = gameState.mode;
   const isTimedMode = gameMode === 'timed_1' || gameMode === 'timed_3' || gameMode === 'timed_5';
@@ -68,24 +68,10 @@ export default function GamePage() {
 
   // Initialize game round on mount if not already started
   useEffect(() => {
-    console.log('[GamePage] useEffect - initialization check', {
-      hasInitialized,
-      hasCurrentQuestion: !!gameState.currentQuestion,
-      isPlaying: gameState.isPlaying,
-      hasRound: !!gameState.round,
-      roundId: gameState.round?.id,
-      isComplete: gameState.isComplete,
-      hasRoundSummary: !!gameState.roundSummary,
-    });
-
-    // Don't start a new round if the game is complete with summary
     if (gameState.isComplete && gameState.roundSummary) {
-      console.log('[GamePage] Game is complete, not starting new round');
       return;
     }
 
-    // Check if we need to start a new round
-    // Reset hasInitialized when game is complete to allow new game
     if (gameState.isComplete && !gameState.isPlaying) {
       setHasInitialized(false);
     }
@@ -94,12 +80,9 @@ export default function GamePage() {
 
     if (needsRound) {
       const playerName = sessionStorage.getItem('playerName');
-      console.log('[GamePage] Starting round for player:', playerName);
-
       if (playerName) {
         startNewRound(playerName);
       } else {
-        console.warn('[GamePage] No player name found, redirecting to home');
         navigate('/');
         return;
       }
@@ -107,10 +90,11 @@ export default function GamePage() {
     }
   }, [hasInitialized, gameState.currentQuestion, gameState.isPlaying, gameState.round, gameState.isComplete, gameState.roundSummary, startNewRound, navigate]);
 
-  // Timer effect
+  // Timer effect - uses question's time_limit
   useEffect(() => {
     if (!gameState.currentAnswer && gameState.currentQuestion) {
-      setTimeLeft(TIMER_SECONDS);
+      const timeLimit = gameState.currentQuestion.time_limit || 30;
+      setTimeLeft(timeLimit);
       timerRef.current = setInterval(() => {
         setTimeLeft((t) => {
           if (t <= 1) {
@@ -124,7 +108,7 @@ export default function GamePage() {
     }
   }, [gameState.currentQuestion, gameState.currentAnswer]);
 
-  // Global timer effect for timed modes - uses Date.now() based approach to avoid re-render issues
+  // Global timer effect for timed modes
   useEffect(() => {
     const timeLimit = getTimeLimitForMode(gameMode);
 
@@ -132,64 +116,104 @@ export default function GamePage() {
       const startTime = Date.now();
       const totalMs = timeLimit * 1000;
 
-      globalTimerRef.current = setInterval(() => {
+      const globalTimerRef = setInterval(() => {
         const elapsed = Date.now() - startTime;
         const remaining = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
         setGlobalTimeLeft(remaining);
 
         if (remaining <= 0) {
-          clearInterval(globalTimerRef.current!);
-          finishGameRef.current();
+          clearInterval(globalTimerRef);
+          finishGame();
         }
-      }, 250); // Update every 250ms for smooth display
+      }, 250);
 
-      return () => {
-        if (globalTimerRef.current) clearInterval(globalTimerRef.current);
-      };
+      return () => clearInterval(globalTimerRef);
     }
-  }, [gameMode, gameState.isPlaying, gameState.isComplete]);
+  }, [gameMode, gameState.isPlaying, gameState.isComplete, finishGame]);
 
   // Handle map click
   const handleSelectPos = useCallback((pos: { lat: number; lng: number }) => {
-    if (
-      typeof pos.lat === 'number' &&
-      typeof pos.lng === 'number' &&
-      !isNaN(pos.lat) &&
-      !isNaN(pos.lng)
-    ) {
-      setSelectedPos({ lat: pos.lat, lng: normalizeLon(pos.lng) });
-    }
+    setSelectedPos({ lat: pos.lat, lng: pos.lng });
   }, []);
 
   // Handle submit answer
   const handleSubmit = useCallback(() => {
-    if (!selectedPos || gameState.currentAnswer) return;
+    if (!selectedPos || gameState.currentAnswer || isProcessingRef.current) {
+      return;
+    }
+    isProcessingRef.current = true;
+    if (autoSubmitTimerRef.current) {
+      clearTimeout(autoSubmitTimerRef.current);
+    }
     clearInterval(timerRef.current);
 
-    const timeTaken = TIMER_SECONDS - timeLeft;
+    const timeTaken = questionTimeLimit - timeLeft;
     submitAnswerClick(selectedPos.lat, selectedPos.lng, timeTaken);
-  }, [selectedPos, gameState.currentAnswer, timeLeft, submitAnswerClick]);
+  }, [selectedPos, gameState.currentAnswer, timeLeft, questionTimeLimit, submitAnswerClick]);
+
+  // Reset processing flag when answer is received or question changes
+  useEffect(() => {
+    if (gameState.currentAnswer || gameState.currentQuestion) {
+      isProcessingRef.current = false;
+      if (autoSubmitTimerRef.current) {
+        clearTimeout(autoSubmitTimerRef.current);
+      }
+    }
+  }, [gameState.currentAnswer, gameState.currentQuestion?.id]);
+
+  // Auto-skip to next question when error occurs
+  useEffect(() => {
+    if (gameState.error) {
+      const timer = setTimeout(() => {
+        setGameState(prev => ({ ...prev, error: null }));
+        isProcessingRef.current = false;
+        goToNextQuestion();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.error, setGameState, goToNextQuestion]);
 
   // Auto-submit when time runs out
   useEffect(() => {
-    if (timeLeft === 0 && !gameState.currentAnswer) {
+    if (timeLeft === 0 && !gameState.currentAnswer && !isSubmittingAnswer && !isProcessingRef.current) {
+      if (!gameState.round || !gameState.currentQuestion) {
+        isProcessingRef.current = true;
+        setTimeout(() => {
+          isProcessingRef.current = false;
+          goToNextQuestion();
+        }, 1500);
+        return;
+      }
+
       if (selectedPos) {
         handleSubmit();
+      } else {
+        isProcessingRef.current = true;
+        if (autoSubmitTimerRef.current) {
+          clearTimeout(autoSubmitTimerRef.current);
+        }
+        autoSubmitTimerRef.current = setTimeout(() => {
+          isProcessingRef.current = false;
+          submitAnswerClick(0, 0, questionTimeLimit);
+        }, 2500);
       }
     }
-  }, [timeLeft, gameState.currentAnswer, selectedPos, handleSubmit]);
+  }, [timeLeft]);
 
   // Handle score submission
   const handleSubmitScore = async () => {
-    if (!gameState.roundSummary || !gameState.round) return;
-    if (isSubmitting) return;
+    setShowSubmitConfirm(true);
+  };
+
+  const handleConfirmSubmitScore = async () => {
+    if (!gameState.roundSummary || !gameState.round || isSubmitting) return;
 
     setIsSubmitting(true);
     setSubmitMessage(null);
+    setShowSubmitConfirm(false);
 
     try {
       const result = await submitScore(gameState.round.id, gameState.mode);
-
       if (result.success) {
         setSubmitMessage(`🎉 ${result.message}`);
         setTimeout(() => {
@@ -199,7 +223,7 @@ export default function GamePage() {
         setSubmitMessage(`⚠️ ${result.message}`);
       }
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to submit score. Please try again.';
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to submit score.';
       setSubmitMessage(`❌ ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
@@ -209,9 +233,9 @@ export default function GamePage() {
   const playerName = sessionStorage.getItem('playerName') || 'Player';
 
   // Per-question timer styling
-  const timerColor = timeLeft > 15 ? 'text-primary' : timeLeft > 5 ? 'text-amber-400' : 'text-destructive';
-  const timerPct = (timeLeft / TIMER_SECONDS) * 100;
-  const timerStroke = timeLeft > 15 ? 'hsl(142,71%,45%)' : timeLeft > 5 ? 'hsl(38,92%,50%)' : 'hsl(0,84%,60%)';
+  const timerColor = timeLeft > questionTimeLimit * 0.5 ? 'text-primary' : timeLeft > questionTimeLimit * 0.2 ? 'text-amber-400' : 'text-destructive';
+  const timerPct = (timeLeft / questionTimeLimit) * 100;
+  const timerStroke = timeLeft > questionTimeLimit * 0.5 ? 'hsl(142,71%,45%)' : timeLeft > questionTimeLimit * 0.2 ? 'hsl(38,92%,50%)' : 'hsl(0,84%,60%)';
 
   // Global timer styling for timed modes
   const formatGlobalTime = (seconds: number) => {
@@ -223,7 +247,6 @@ export default function GamePage() {
 
   // Error state
   if (error) {
-    console.error('[GamePage] Error state:', error);
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md border-border bg-card p-6 text-center">
@@ -235,9 +258,7 @@ export default function GamePage() {
               onClick={() => {
                 resetGame();
                 const playerName = sessionStorage.getItem('playerName');
-                if (playerName) {
-                  startNewRound(playerName);
-                }
+                if (playerName) startNewRound(playerName);
               }}
               className="flex-1"
             >
@@ -261,12 +282,6 @@ export default function GamePage() {
 
   // Game complete - show results
   if (gameState.isComplete && gameState.roundSummary) {
-    console.log('[GamePage] ✓ Rendering game complete screen', {
-      isComplete: gameState.isComplete,
-      hasRoundSummary: !!gameState.roundSummary,
-      totalScore: gameState.roundSummary.total_score,
-      questionsAnswered: gameState.roundSummary.questions_answered
-    });
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <motion.div
@@ -277,7 +292,7 @@ export default function GamePage() {
           <Card className="border-border bg-card p-6 text-center">
             <div className="mb-4 text-6xl">🎉</div>
             <h1 className="mb-2 text-2xl font-bold">Round Complete!</h1>
-            
+
             <div className="mb-6">
               <p className="text-sm text-muted-foreground">Total Score</p>
               <p className="text-5xl font-extrabold text-secondary">
@@ -309,7 +324,7 @@ export default function GamePage() {
                 disabled={isSubmitting}
                 className="w-full"
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Score'}
+                {isSubmitting ? 'Submitting...' : 'Submit Score to Leaderboard'}
               </Button>
               <Button
                 onClick={() => {
@@ -328,8 +343,8 @@ export default function GamePage() {
 
             {submitMessage && (
               <div className={`mt-4 rounded-lg p-4 text-center ${
-                submitMessage.includes('🎉') 
-                  ? 'bg-green-950 text-green-400' 
+                submitMessage.includes('🎉')
+                  ? 'bg-green-950 text-green-400'
                   : 'bg-amber-950 text-amber-400'
               }`}>
                 {submitMessage}
@@ -337,6 +352,35 @@ export default function GamePage() {
             )}
           </Card>
         </motion.div>
+
+        {/* Score submission confirmation dialog */}
+        <Dialog open={showSubmitConfirm} onOpenChange={setShowSubmitConfirm}>
+          <DialogContent className="max-w-md bg-[#1a1a1a] text-white border-border">
+            <DialogHeader>
+              <DialogTitle className="text-white">Submit Score to Leaderboard?</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Your score of <strong className="text-secondary">{gameState.roundSummary?.total_score.toLocaleString()}</strong> will be submitted to the leaderboard.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowSubmitConfirm(false)}
+                disabled={isSubmitting}
+                className="text-white border-border hover:bg-[#262626]"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmSubmitScore}
+                disabled={isSubmitting}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -508,8 +552,111 @@ export default function GamePage() {
                   onClick={goToNextQuestion}
                   className="w-full"
                 >
-                  {isEndlessMode ? "Next Question" : currentQuestionNumber >= 10 ? "See Results" : "Next Question"}
+                  {isEndlessMode ? "Next Question" : currentQuestionNumber >= 10 ? "See Results" : "Next Question"} ({currentQuestionNumber}/10)
                 </Button>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Submitting overlay - shown when submitting answer after timer expires */}
+        <AnimatePresence>
+          {timeLeft === 0 && !gameState.currentAnswer && selectedPos && isSubmittingAnswer && (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/60 backdrop-blur-sm"
+            >
+              <Card className="w-full max-w-sm border-border bg-card p-6 text-center">
+                <div className="mb-4 text-4xl">⏳</div>
+                <h3 className="mb-2 text-xl font-bold">Submitting Answer...</h3>
+                <p className="text-muted-foreground">Please wait</p>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Timeout message overlay - shown when time runs out without answer, auto-submits after 2.5s */}
+        <AnimatePresence>
+          {timeLeft === 0 && !gameState.currentAnswer && !selectedPos && !isSubmittingAnswer && (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/60 backdrop-blur-sm"
+            >
+              <Card className="w-full max-w-sm border-border bg-card p-6 text-center">
+                <div className="mb-4 text-4xl">⏰</div>
+                <h3 className="mb-2 text-xl font-bold">Time&apos;s Up!</h3>
+                <p className="mb-4 text-muted-foreground">No answer selected</p>
+                <Button
+                  onClick={() => {
+                    console.log('[GamePage] Submit 0 points now');
+                    // Clear auto-submit timer
+                    if (autoSubmitTimerRef.current) {
+                      clearTimeout(autoSubmitTimerRef.current);
+                    }
+                    isProcessingRef.current = false;
+                    submitAnswerClick(0, 0, questionTimeLimit);
+                  }}
+                  className="w-full mb-3"
+                >
+                  Get 0 pts
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Auto-submitting 0 points in 2.5 seconds...
+                </p>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Error overlay - shown when answer submission fails */}
+        <AnimatePresence>
+          {gameState.error && (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/60 backdrop-blur-sm"
+            >
+              <Card className="w-full max-w-sm border-border bg-card p-6 text-center">
+                <div className="mb-4 text-4xl">⚠️</div>
+                <h3 className="mb-2 text-xl font-bold">Error</h3>
+                <p className="mb-4 text-muted-foreground">{gameState.error}</p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      console.log('[GamePage] Retry button clicked');
+                      // Clear error and try again
+                      setGameState(prev => ({ ...prev, error: null }));
+                      isProcessingRef.current = false;
+                      if (selectedPos) {
+                        handleSubmit();
+                      }
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Retry
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      console.log('[GamePage] Skip button clicked');
+                      // Clear error and skip to next question
+                      setGameState(prev => ({ ...prev, error: null }));
+                      isProcessingRef.current = false;
+                      goToNextQuestion();
+                    }}
+                    className="flex-1"
+                  >
+                    Skip
+                  </Button>
+                </div>
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Auto-skipping in 5 seconds...
+                </p>
               </Card>
             </motion.div>
           )}
