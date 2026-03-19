@@ -78,13 +78,18 @@ export default function GamePage() {
       hasRoundSummary: !!gameState.roundSummary,
     });
 
-    // Don't start a new round if the game is complete
+    // Don't start a new round if the game is complete with summary
     if (gameState.isComplete && gameState.roundSummary) {
       console.log('[GamePage] Game is complete, not starting new round');
       return;
     }
 
     // Check if we need to start a new round
+    // Reset hasInitialized when game is complete to allow new game
+    if (gameState.isComplete && !gameState.isPlaying) {
+      setHasInitialized(false);
+    }
+
     const needsRound = !hasInitialized && (!gameState.currentQuestion || !gameState.round || !gameState.isPlaying);
 
     if (needsRound) {

@@ -136,6 +136,9 @@ export default function HomePage(_props: HomePageProps) {
       return;
     }
 
+    // Clear any previous game state
+    sessionStorage.removeItem('gameState');
+
     // Store player name, mode, and category for GamePage to use
     sessionStorage.setItem('playerName', playerName.trim());
     sessionStorage.setItem('gameMode', selectedMode);

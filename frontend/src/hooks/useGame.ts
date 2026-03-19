@@ -187,6 +187,23 @@ export function useGame(): UseGameReturn {
 
   const startNewRound = useCallback(async (playerName: string) => {
     console.log('[useGame] startNewRound called with playerName:', playerName);
+    
+    // Reset game state before starting new round
+    setGameState({
+      round: null,
+      roundSummary: null,
+      currentQuestion: null,
+      currentAnswer: null,
+      isPlaying: false,
+      isComplete: false,
+      error: null,
+      mode: sessionStorage.getItem('gameMode') as GameMode || 'standard',
+      category: sessionStorage.getItem('gameCategory') as GameCategory || null,
+    });
+    setCurrentQuestionNumber(1);
+    setTimerStartTime(null);
+    setCurrentScore(0);
+    
     startRoundMutation.mutate(playerName);
   }, [startRoundMutation]);
 
