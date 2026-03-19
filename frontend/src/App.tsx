@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage';
 import GamePage from './pages/GamePage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import SuggestPage from './pages/SuggestPage';
+import AdminPage from './pages/AdminPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useGame } from './hooks/useGame';
 
@@ -19,6 +20,7 @@ function AppContent() {
       <Route path="/game" element={<GamePage />} />
       <Route path="/leaderboard" element={<LeaderboardPage />} />
       <Route path="/suggest" element={<SuggestPage />} />
+      <Route path="/admin" element={<AdminPage />} />
     </Routes>
   );
 }

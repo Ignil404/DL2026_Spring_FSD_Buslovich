@@ -165,4 +165,69 @@ export const suggestQuestion = async (data: {
   return response.data;
 };
 
+/**
+ * Admin: Get all suggested questions
+ */
+export const getSuggestedQuestions = async (status?: string) => {
+  const params = status ? { status } : {};
+  const response = await apiClient.get('/admin/questions/suggestions', { params });
+  return response.data;
+};
+
+/**
+ * Admin: Approve a suggested question
+ */
+export const approveQuestion = async (
+  suggestionId: number,
+  data: {
+    difficulty: string;
+    location_type: string;
+    time_limit: number;
+    category?: string;
+  }
+) => {
+  const response = await apiClient.post(`/admin/questions/approve/${suggestionId}`, data);
+  return response.data;
+};
+
+/**
+ * Admin: Reject a suggested question
+ */
+export const rejectQuestion = async (suggestionId: number) => {
+  const response = await apiClient.post(`/admin/questions/reject/${suggestionId}`);
+  return response.data;
+};
+
+/**
+ * Admin: Get all questions from database
+ */
+export const getAllQuestions = async () => {
+  const response = await apiClient.get('/admin/questions');
+  return response.data;
+};
+
+/**
+ * Admin: Update an existing question
+ */
+export const updateQuestion = async (
+  questionId: number,
+  data: {
+    difficulty: string;
+    location_type: string;
+    time_limit: number;
+    category?: string;
+  }
+) => {
+  const response = await apiClient.put(`/admin/questions/${questionId}`, data);
+  return response.data;
+};
+
+/**
+ * Admin: Delete a question
+ */
+export const deleteQuestion = async (questionId: number) => {
+  const response = await apiClient.delete(`/admin/questions/${questionId}`);
+  return response.data;
+};
+
 export default apiClient;

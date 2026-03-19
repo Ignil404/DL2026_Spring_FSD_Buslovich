@@ -404,7 +404,7 @@ export default function GamePage() {
           <span className="hidden text-sm text-foreground sm:inline">{playerName}</span>
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-muted text-sm font-bold">
-              {playerName[0]?.toUpperCase()}
+              {playerName ? playerName[0]?.toUpperCase() : 'P'}
             </AvatarFallback>
           </Avatar>
         </div>
@@ -418,8 +418,10 @@ export default function GamePage() {
               <Badge variant="secondary" className="mb-1">
                 {question.difficulty}
               </Badge>
-              <p className="font-semibold">{question.text}</p>
-              <p className="text-xs text-muted-foreground">💡 {question.hint}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{question.text}</p>
+              {question.hint && (
+                <p className="text-xs text-muted-foreground">💡 {question.hint}</p>
+              )}
             </>
           )}
         </div>

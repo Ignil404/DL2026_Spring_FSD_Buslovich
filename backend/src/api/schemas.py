@@ -133,6 +133,54 @@ class SuggestedQuestionRequest(BaseModel):
     category: str | None = None
 
 
+class SuggestedQuestionResponse(BaseModel):
+    """Suggested question data for admin review."""
+    id: int
+    player_name: str
+    question_text: str
+    latitude: float
+    longitude: float
+    hint: str | None = None
+    category: str | None = None
+    status: str
+    submitted_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class QuestionApprovalSchema(BaseModel):
+    """Schema for approving a suggested question."""
+    difficulty: str = Field(..., pattern="^(easy|medium|hard)$")
+    location_type: str = Field(..., pattern="^(country|city|landmark)$")
+    time_limit: int = Field(..., ge=30, le=60)
+    category: str | None = None
+
+
+class QuestionUpdateSchema(BaseModel):
+    """Schema for updating an existing question."""
+    difficulty: str = Field(..., pattern="^(easy|medium|hard)$")
+    location_type: str = Field(..., pattern="^(country|city|landmark)$")
+    time_limit: int = Field(..., ge=30, le=60)
+    category: str | None = None
+
+
+class QuestionAdminResponse(BaseModel):
+    """Question data for admin panel (includes coordinates)."""
+    id: int
+    text: str
+    location_type: str
+    latitude: float
+    longitude: float
+    difficulty: str
+    hint: str | None = None
+    time_limit: int
+    category: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
 # ============= Error Schemas =============
 
 class ErrorResponse(BaseModel):

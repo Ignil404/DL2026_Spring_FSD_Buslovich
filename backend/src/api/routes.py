@@ -14,12 +14,16 @@ from src.api.schemas import (
     AnswerResult,
     LeaderboardEntryResponse,
     LeaderboardResponse,
+    QuestionAdminResponse,
+    QuestionApprovalSchema,
     QuestionResponse,
     RoundResponse,
     RoundSummary,
     ScoreSubmitRequest,
     ScoreSubmitResponse,
     SuggestedQuestionRequest,
+    SuggestedQuestionResponse,
+    QuestionUpdateSchema,
 )
 from src.database import get_db
 from src.logger import get_logger
@@ -474,3 +478,253 @@ def suggest_question(
     log.info("Question suggestion saved for review")
 
     return {"success": True, "message": "Question submitted for review"}
+
+
+@router.get("/admin/questions/suggestions", response_model=list[SuggestedQuestionResponse])
+def get_suggested_questions(
+    status: str | None = Query(None, description="Filter by status (pending/approved/rejected)"),
+    db: Session = Depends(get_db),
+) -> list[SuggestedQuestion]:
+    """Get all suggested questions for admin review.
+
+    Args:
+        status: Optional filter by status
+        db: Database session (injected)
+
+    Returns:
+        List of suggested questions
+    """
+    log = logger.bind()
+    log.info("Fetching suggested questions", status=status)
+
+    query = db.query(SuggestedQuestion)
+    if status:
+        query = query.filter(SuggestedQuestion.status == status)
+
+    suggestions = query.order_by(SuggestedQuestion.submitted_at.desc()).all()
+
+    log.info("Fetched suggested questions", count=len(suggestions))
+
+    return suggestions
+
+
+@router.post("/admin/questions/approve/{suggestion_id}", response_model=dict)
+def approve_question(
+    suggestion_id: int,
+    approval_data: QuestionApprovalSchema,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Approve a suggested question and add it to the main question pool.
+
+    Args:
+        suggestion_id: ID of the suggested question to approve
+        approval_data: Difficulty, location_type, time_limit, and category
+        db: Database session (injected)
+
+    Returns:
+        Success message with new question ID
+
+    Raises:
+        HTTPException: 404 if suggestion not found
+    """
+    log = logger.bind(suggestion_id=suggestion_id)
+    log.info("Approving question")
+
+    # Get the suggested question
+    suggestion = db.query(SuggestedQuestion).filter(
+        SuggestedQuestion.id == suggestion_id
+    ).first()
+
+    if not suggestion:
+        log.warning("Suggestion not found")
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    if suggestion.status != "pending":
+        log.warning("Suggestion already processed", status=suggestion.status)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Suggestion already {suggestion.status}"
+        )
+
+    # Create the main question
+    new_question = Question(
+        text=suggestion.question_text,
+        location_type=approval_data.location_type,
+        latitude=suggestion.latitude,
+        longitude=suggestion.longitude,
+        difficulty=approval_data.difficulty,
+        hint=suggestion.hint,
+        time_limit=approval_data.time_limit,
+        category=approval_data.category or suggestion.category,
+    )
+
+    db.add(new_question)
+
+    # Update suggestion status
+    suggestion.status = "approved"
+
+    db.commit()
+    db.refresh(new_question)
+
+    log.info(
+        "Question approved and added to main pool",
+        question_id=new_question.id
+    )
+
+    return {
+        "success": True,
+        "message": "Question approved and added to main pool",
+        "question_id": new_question.id,
+    }
+
+
+@router.post("/admin/questions/reject/{suggestion_id}", response_model=dict)
+def reject_question(
+    suggestion_id: int,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Reject a suggested question.
+
+    Args:
+        suggestion_id: ID of the suggested question to reject
+        db: Database session (injected)
+
+    Returns:
+        Success message
+
+    Raises:
+        HTTPException: 404 if suggestion not found
+    """
+    log = logger.bind(suggestion_id=suggestion_id)
+    log.info("Rejecting question")
+
+    suggestion = db.query(SuggestedQuestion).filter(
+        SuggestedQuestion.id == suggestion_id
+    ).first()
+
+    if not suggestion:
+        log.warning("Suggestion not found")
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    if suggestion.status != "pending":
+        log.warning("Suggestion already processed", status=suggestion.status)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Suggestion already {suggestion.status}"
+        )
+
+    suggestion.status = "rejected"
+    db.commit()
+
+    log.info("Question rejected")
+
+    return {
+        "success": True,
+        "message": "Question rejected",
+    }
+
+
+@router.get("/admin/questions", response_model=list[QuestionAdminResponse])
+def get_all_questions(
+    db: Session = Depends(get_db),
+) -> list[Question]:
+    """Get all questions from the database for admin management.
+
+    Args:
+        db: Database session (injected)
+
+    Returns:
+        List of all questions with full details including coordinates
+    """
+    log = logger.bind()
+    log.info("Fetching all questions for admin")
+
+    questions = db.query(Question).order_by(Question.category, Question.text).all()
+
+    log.info("Fetched questions", count=len(questions))
+
+    return questions
+
+
+@router.put("/admin/questions/{question_id}", response_model=dict)
+def update_question(
+    question_id: int,
+    update_data: QuestionUpdateSchema,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Update an existing question.
+
+    Args:
+        question_id: ID of the question to update
+        update_data: New values for difficulty, location_type, time_limit, category
+        db: Database session (injected)
+
+    Returns:
+        Success message
+
+    Raises:
+        HTTPException: 404 if question not found
+    """
+    log = logger.bind(question_id=question_id)
+    log.info("Updating question")
+
+    question = db.query(Question).filter(Question.id == question_id).first()
+
+    if not question:
+        log.warning("Question not found")
+        raise HTTPException(status_code=404, detail="Question not found")
+
+    # Update fields
+    question.difficulty = update_data.difficulty
+    question.location_type = update_data.location_type
+    question.time_limit = update_data.time_limit
+    if update_data.category:
+        question.category = update_data.category
+
+    db.commit()
+    db.refresh(question)
+
+    log.info("Question updated successfully")
+
+    return {
+        "success": True,
+        "message": "Question updated",
+        "question_id": question.id,
+    }
+
+
+@router.delete("/admin/questions/{question_id}", response_model=dict)
+def delete_question(
+    question_id: int,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Delete a question from the database.
+
+    Args:
+        question_id: ID of the question to delete
+        db: Database session (injected)
+
+    Returns:
+        Success message
+
+    Raises:
+        HTTPException: 404 if question not found
+    """
+    log = logger.bind(question_id=question_id)
+    log.info("Deleting question")
+
+    question = db.query(Question).filter(Question.id == question_id).first()
+
+    if not question:
+        log.warning("Question not found")
+        raise HTTPException(status_code=404, detail="Question not found")
+
+    db.delete(question)
+    db.commit()
+
+    log.info("Question deleted successfully")
+
+    return {
+        "success": True,
+        "message": "Question deleted",
+    }

@@ -264,7 +264,7 @@ export default function HomePage(_props: HomePageProps) {
               <Button
                 type="submit"
                 disabled={!playerName.trim()}
-                className={`w-full ${modeConfig[selectedMode].button}`}
+                className={`w-full text-white ${modeConfig[selectedMode].button}`}
               >
                 Start Game
               </Button>
