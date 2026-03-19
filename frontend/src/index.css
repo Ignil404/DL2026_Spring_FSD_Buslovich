@@ -67,3 +67,26 @@ html, body, #root {
 .leaflet-control-attribution a {
   color: #888 !important;
 }
+
+/* Edit dialog select styles */
+.edit-dialog-select-content {
+  background-color: #262626 !important;
+  border-color: #404040 !important;
+  color: white !important;
+  z-index: 1000000 !important;
+}
+.edit-dialog-select-content [role="option"] {
+  color: white !important;
+}
+.edit-dialog-select-content [role="option"][data-highlighted] {
+  background-color: #404040 !important;
+  color: white !important;
+}
+.edit-dialog-select-content [role="option"][data-state="checked"] {
+  color: white !important;
+}
+
+/* Fix dialog overflow for select dropdowns */
+[data-radix-dialog-content] {
+  overflow: visible !important;
+}

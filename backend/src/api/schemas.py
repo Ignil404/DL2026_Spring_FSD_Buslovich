@@ -21,12 +21,23 @@ class QuestionResponse(BaseModel):
 class QuestionCreate(BaseModel):
     """Schema for creating a question (admin only)."""
     text: str = Field(..., min_length=1, max_length=500)
-    location_type: str = Field(..., pattern="^(country|city|landmark)$")
+    location_type: str | None = Field(None, pattern="^(country|city|landmark)$")
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
-    difficulty: str = Field(..., pattern="^(easy|medium|hard)$")
+    difficulty: str | None = Field(None, pattern="^(easy|medium|hard)$")
     hint: str | None = Field(None, max_length=200)
     time_limit: int = Field(..., ge=30, le=60)
+    category: str | None = None
+
+
+class QuestionCreateSchema(BaseModel):
+    """Schema for creating a new question (auto-calculates difficulty and location_type)."""
+    text: str = Field(..., min_length=1, max_length=500)
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    hint: str | None = Field(None, max_length=200)
+    time_limit: int = Field(..., ge=30, le=60)
+    category: str = Field(..., description="Category determines location_type automatically")
 
 
 # ============= Round Schemas =============
@@ -159,10 +170,14 @@ class QuestionApprovalSchema(BaseModel):
 
 class QuestionUpdateSchema(BaseModel):
     """Schema for updating an existing question."""
-    difficulty: str = Field(..., pattern="^(easy|medium|hard)$")
-    location_type: str = Field(..., pattern="^(country|city|landmark)$")
-    time_limit: int = Field(..., ge=30, le=60)
+    text: str | None = Field(None, min_length=1, max_length=500)
+    latitude: float | None = Field(None, ge=-90, le=90)
+    longitude: float | None = Field(None, ge=-180, le=180)
+    difficulty: str | None = Field(None, pattern="^(easy|medium|hard)$")
+    location_type: str | None = Field(None, pattern="^(country|city|landmark)$")
+    time_limit: int | None = Field(None, ge=30, le=60)
     category: str | None = None
+    hint: str | None = Field(None, max_length=200)
 
 
 class QuestionAdminResponse(BaseModel):

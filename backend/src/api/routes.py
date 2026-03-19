@@ -24,6 +24,7 @@ from src.api.schemas import (
     SuggestedQuestionRequest,
     SuggestedQuestionResponse,
     QuestionUpdateSchema,
+    QuestionCreateSchema,
 )
 from src.database import get_db
 from src.logger import get_logger
@@ -646,6 +647,70 @@ def get_all_questions(
     return questions
 
 
+@router.post("/admin/questions", response_model=dict)
+def create_question(
+    create_data: QuestionCreateSchema,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Create a new question.
+
+    Args:
+        create_data: Question data (text, coordinates, time_limit, category)
+        db: Database session (injected)
+
+    Returns:
+        Success message with new question ID
+
+    Raises:
+        HTTPException: 400 on validation error
+    """
+    log = logger.bind()
+    log.info("Creating new question")
+
+    # Auto-calculate location_type from category
+    category_lower = create_data.category.lower()
+    if category_lower == 'countries':
+        location_type = 'country'
+    elif category_lower in ('cities', 'capitals'):
+        location_type = 'city'
+    elif category_lower == 'landmarks':
+        location_type = 'landmark'
+    else:
+        location_type = 'landmark'  # default
+
+    # Auto-calculate difficulty from time_limit
+    if create_data.time_limit <= 30:
+        difficulty = 'hard'
+    elif create_data.time_limit <= 45:
+        difficulty = 'medium'
+    else:
+        difficulty = 'easy'
+
+    # Create the question
+    new_question = Question(
+        text=create_data.text,
+        location_type=location_type,
+        latitude=create_data.latitude,
+        longitude=create_data.longitude,
+        difficulty=difficulty,
+        hint=create_data.hint,
+        time_limit=create_data.time_limit,
+        category=create_data.category,
+    )
+
+    db.add(new_question)
+    db.commit()
+    db.refresh(new_question)
+
+    log.info("Question created successfully", question_id=new_question.id)
+
+    return {
+        "success": True,
+        "message": "Question created",
+        "question_id": new_question.id,
+    }
+
+
 @router.put("/admin/questions/{question_id}", response_model=dict)
 def update_question(
     question_id: int,
@@ -656,7 +721,7 @@ def update_question(
 
     Args:
         question_id: ID of the question to update
-        update_data: New values for difficulty, location_type, time_limit, category
+        update_data: New values for text, coordinates, time_limit, category, hint (difficulty and location_type auto-calculated)
         db: Database session (injected)
 
     Returns:
@@ -674,12 +739,46 @@ def update_question(
         log.warning("Question not found")
         raise HTTPException(status_code=404, detail="Question not found")
 
-    # Update fields
-    question.difficulty = update_data.difficulty
-    question.location_type = update_data.location_type
-    question.time_limit = update_data.time_limit
+    # Update text
+    if update_data.text:
+        question.text = update_data.text
+
+    # Update coordinates
+    if update_data.latitude is not None:
+        question.latitude = update_data.latitude
+    if update_data.longitude is not None:
+        question.longitude = update_data.longitude
+
+    # Update hint
+    if update_data.hint is not None:
+        question.hint = update_data.hint
+
+    # Auto-calculate location_type from category
     if update_data.category:
         question.category = update_data.category
+        category_lower = update_data.category.lower()
+        if category_lower == 'countries':
+            question.location_type = 'country'
+        elif category_lower in ('cities', 'capitals'):
+            question.location_type = 'city'
+        elif category_lower == 'landmarks':
+            question.location_type = 'landmark'
+
+    # Auto-calculate difficulty from time_limit
+    if update_data.time_limit is not None:
+        question.time_limit = update_data.time_limit
+        if update_data.time_limit <= 30:
+            question.difficulty = 'hard'
+        elif update_data.time_limit <= 45:
+            question.difficulty = 'medium'
+        else:
+            question.difficulty = 'easy'
+
+    # Allow explicit overrides if provided
+    if update_data.location_type:
+        question.location_type = update_data.location_type
+    if update_data.difficulty:
+        question.difficulty = update_data.difficulty
 
     db.commit()
     db.refresh(question)

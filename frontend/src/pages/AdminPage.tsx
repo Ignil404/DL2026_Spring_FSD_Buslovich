@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -32,6 +32,7 @@ import {
   getAllQuestions,
   updateQuestion,
   deleteQuestion,
+  createQuestion,
 } from '../services/api';
 
 // Fix default marker icon
@@ -85,6 +86,15 @@ interface ApprovalData {
   category: string;
 }
 
+interface CreateQuestionData {
+  text: string;
+  latitude: string;
+  longitude: string;
+  hint: string;
+  time_limit: number;
+  category: string;
+}
+
 export default function AdminPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -120,15 +130,126 @@ export default function AdminPage() {
     category: 'Landmarks',
   });
 
+  // Auto-update location_type when category changes in approve dialog
+  useEffect(() => {
+    const autoLocationType = get_location_type(approvalData.category);
+    if (approvalData.location_type !== autoLocationType) {
+      setApprovalData((prev) => ({ ...prev, location_type: autoLocationType }));
+    }
+  }, [approvalData.category]);
+
+  // Auto-update difficulty when time_limit changes in approve dialog
+  useEffect(() => {
+    const autoDifficulty = get_difficulty(approvalData.time_limit);
+    if (approvalData.difficulty !== autoDifficulty) {
+      setApprovalData((prev) => ({ ...prev, difficulty: autoDifficulty }));
+    }
+  }, [approvalData.time_limit]);
+
   // Edit dialog state
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editData, setEditData] = useState<ApprovalData>({
-    difficulty: 'medium',
-    location_type: 'landmark',
+  const [editData, setEditData] = useState<{
+    text: string;
+    latitude: string;
+    longitude: string;
+    hint: string;
+    time_limit: number;
+    category: string;
+  }>({
+    text: '',
+    latitude: '',
+    longitude: '',
+    hint: '',
     time_limit: 45,
     category: 'Landmarks',
   });
+  const [editMapCenter, setEditMapCenter] = useState<[number, number]>([51.505, -0.09]);
+
+  // Auto-calculate location_type and difficulty based on category and time_limit
+  const get_location_type = (category: string): string => {
+    const categoryLower = category.toLowerCase();
+    if (categoryLower === 'countries') return 'country';
+    if (categoryLower === 'cities' || categoryLower === 'capitals') return 'city';
+    if (categoryLower === 'landmarks') return 'landmark';
+    return 'landmark'; // default
+  };
+
+  const get_difficulty = (time_limit: number): string => {
+    if (time_limit <= 30) return 'hard';
+    if (time_limit <= 45) return 'medium';
+    return 'easy';
+  };
+
+  // Create question dialog state
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [createData, setCreateData] = useState<CreateQuestionData>({
+    text: '',
+    latitude: '',
+    longitude: '',
+    hint: '',
+    time_limit: 45,
+    category: 'Landmarks',
+  });
+  const [mapCenter, setMapCenter] = useState<[number, number]>([51.505, -0.09]);
+
+  const handleCreateClick = () => {
+    setCreateData({
+      text: '',
+      latitude: '',
+      longitude: '',
+      hint: '',
+      time_limit: 45,
+      category: 'Landmarks',
+    });
+    setMapCenter([51.505, -0.09]);
+    setIsCreateDialogOpen(true);
+  };
+
+  const handleCreateSubmit = async () => {
+    if (!createData.text || !createData.latitude || !createData.longitude) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await createQuestion({
+        text: createData.text,
+        latitude: parseFloat(createData.latitude),
+        longitude: parseFloat(createData.longitude),
+        hint: createData.hint || undefined,
+        category: createData.category,
+        time_limit: createData.time_limit,
+      });
+      setIsCreateDialogOpen(false);
+      fetchQuestions();
+    } catch (err) {
+      setError('Failed to create question');
+      console.error(err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleMapClick = (e: L.LeafletMouseEvent) => {
+    const lat = e.latlng.lat;
+    const lng = e.latlng.lng;
+    setMapCenter([lat, lng]);
+    setCreateData((prev) => ({
+      ...prev,
+      latitude: lat.toFixed(6),
+      longitude: lng.toFixed(6),
+    }));
+  };
+
+  // Map click handler component for Create dialog
+  const MapClickHandler = ({ onClick }: { onClick: (e: L.LeafletMouseEvent) => void }) => {
+    useMapEvents({
+      click: onClick,
+    });
+    return null;
+  };
 
   // Check token on mount
   useEffect(() => {
@@ -244,20 +365,33 @@ export default function AdminPage() {
   const handleEditClick = (question: Question) => {
     setSelectedQuestion(question);
     setEditData({
-      difficulty: question.difficulty,
-      location_type: question.location_type,
+      text: question.text,
+      latitude: question.latitude.toString(),
+      longitude: question.longitude.toString(),
+      hint: question.hint || '',
       time_limit: question.time_limit,
       category: question.category || 'Landmarks',
     });
+    setEditMapCenter([question.latitude, question.longitude]);
     setIsEditDialogOpen(true);
   };
 
   const handleEditSubmit = async () => {
-    if (!selectedQuestion) return;
+    if (!selectedQuestion || !editData.text || !editData.latitude || !editData.longitude) {
+      setError('Please fill in all required fields');
+      return;
+    }
 
     setIsProcessing(true);
     try {
-      await updateQuestion(selectedQuestion.id, editData);
+      await updateQuestion(selectedQuestion.id, {
+        text: editData.text,
+        latitude: parseFloat(editData.latitude),
+        longitude: parseFloat(editData.longitude),
+        hint: editData.hint || undefined,
+        category: editData.category,
+        time_limit: editData.time_limit,
+      });
       setIsEditDialogOpen(false);
       setSelectedQuestion(null);
       fetchQuestions();
@@ -267,6 +401,17 @@ export default function AdminPage() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleEditMapClick = (e: L.LeafletMouseEvent) => {
+    const lat = e.latlng.lat;
+    const lng = e.latlng.lng;
+    setEditMapCenter([lat, lng]);
+    setEditData((prev) => ({
+      ...prev,
+      latitude: lat.toFixed(6),
+      longitude: lng.toFixed(6),
+    }));
   };
 
   const handleDeleteClick = async (question: Question) => {
@@ -290,7 +435,7 @@ export default function AdminPage() {
         center={[lat, lon]}
         zoom={5}
         className="h-full w-full"
-        style={{ height: '100%', width: '100%' }}
+        style={{ height: '100%', width: '100%', zIndex: 0 }}
         zoomControl={true}
         scrollWheelZoom={false}
         dragging={true}
@@ -357,9 +502,17 @@ export default function AdminPage() {
               Manage questions and moderate suggestions
             </p>
           </div>
-          <Button variant="outline" onClick={() => navigate('/')} className="dark:text-white">
-            ← Back to Home
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleCreateClick}
+            >
+              + Create Question
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/')} className="dark:text-white">
+              ← Back to Home
+            </Button>
+          </div>
         </motion.div>
 
         {/* Error Message */}
@@ -611,7 +764,7 @@ export default function AdminPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium mb-1 block">Difficulty</label>
+                    <label className="text-sm font-medium mb-1 block">Difficulty (auto)</label>
                     <Select
                       value={approvalData.difficulty}
                       onValueChange={(value) =>
@@ -630,7 +783,7 @@ export default function AdminPage() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-1 block">Location Type</label>
+                    <label className="text-sm font-medium mb-1 block">Location Type (auto)</label>
                     <Select
                       value={approvalData.location_type}
                       onValueChange={(value) =>
@@ -688,6 +841,13 @@ export default function AdminPage() {
                   </Select>
                 </div>
 
+                {/* Auto-calculated info */}
+                <div className="text-xs text-gray-500">
+                  <p>• Difficulty is auto-calculated from Time Limit</p>
+                  <p>• Location Type is auto-calculated from Category</p>
+                  <p>• You can still manually override above</p>
+                </div>
+
                 {/* Map preview - same design as SuggestPage */}
                 <div>
                   <label className="text-sm font-medium mb-1 block">Location Preview</label>
@@ -719,91 +879,208 @@ export default function AdminPage() {
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-3xl bg-[#1a1a1a] text-white border-border">
             <DialogHeader>
-              <DialogTitle>Edit Question</DialogTitle>
-              <DialogDescription>
-                Update question settings
+              <DialogTitle className="text-white">Edit Question</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Update question details
               </DialogDescription>
             </DialogHeader>
 
             {selectedQuestion && (
-              <div className="space-y-4 py-4">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  <strong>Question:</strong> {selectedQuestion.text}
+              <div className="space-y-3 py-4">
+                {/* Question Text */}
+                <div>
+                  <label className="text-sm font-medium mb-1 block text-gray-300">Question Text</label>
+                  <input
+                    type="text"
+                    value={editData.text}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, text: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#262626] text-white border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring h-9"
+                    placeholder="e.g., Where is the Eiffel Tower?"
+                    maxLength={500}
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Category and Time Limit */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-sm font-medium mb-1 block">Difficulty</label>
+                    <label className="text-sm font-medium mb-1 block text-gray-300">Category</label>
                     <Select
-                      value={editData.difficulty}
+                      value={editData.category}
                       onValueChange={(value) =>
-                        setEditData((prev) => ({ ...prev, difficulty: value }))
+                        setEditData((prev) => ({ ...prev, category: value }))
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-[#262626] text-white border-border h-9">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="easy">Easy</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="hard">Hard</SelectItem>
+                      <SelectContent className="edit-dialog-select-content text-white">
+                        <SelectItem value="Countries">Countries</SelectItem>
+                        <SelectItem value="Cities">Cities</SelectItem>
+                        <SelectItem value="Landmarks">Landmarks</SelectItem>
+                        <SelectItem value="Capitals">Capitals</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-1 block">Location Type</label>
+                    <label className="text-sm font-medium mb-1 block text-gray-300">Time Limit</label>
                     <Select
-                      value={editData.location_type}
+                      value={editData.time_limit.toString()}
                       onValueChange={(value) =>
-                        setEditData((prev) => ({ ...prev, location_type: value }))
+                        setEditData((prev) => ({ ...prev, time_limit: parseInt(value) }))
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-[#262626] text-white border-border h-9">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="country">Country</SelectItem>
-                        <SelectItem value="city">City</SelectItem>
-                        <SelectItem value="landmark">Landmark</SelectItem>
+                      <SelectContent className="edit-dialog-select-content text-white">
+                        <SelectItem value="30">30 sec (Hard)</SelectItem>
+                        <SelectItem value="45">45 sec (Medium)</SelectItem>
+                        <SelectItem value="60">60 sec (Easy)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Time Limit</label>
-                  <Select
-                    value={editData.time_limit.toString()}
-                    onValueChange={(value) =>
-                      setEditData((prev) => ({ ...prev, time_limit: parseInt(value) }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="30">30 seconds (Hard)</SelectItem>
-                      <SelectItem value="45">45 seconds (Medium)</SelectItem>
-                      <SelectItem value="60">60 seconds (Easy)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Coordinates */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block text-gray-300">Latitude</label>
+                    <input
+                      type="text"
+                      value={editData.latitude}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, latitude: e.target.value }))}
+                      className="w-full px-3 py-2 bg-[#262626] text-white border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring h-9"
+                      placeholder="51.505"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block text-gray-300">Longitude</label>
+                    <input
+                      type="text"
+                      value={editData.longitude}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, longitude: e.target.value }))}
+                      className="w-full px-3 py-2 bg-[#262626] text-white border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring h-9"
+                      placeholder="-0.09"
+                    />
+                  </div>
                 </div>
 
+                {/* Hint */}
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Category</label>
+                  <label className="text-sm font-medium mb-1 block text-gray-300">Hint (optional)</label>
+                  <input
+                    type="text"
+                    value={editData.hint}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, hint: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#262626] text-white border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring h-9"
+                    placeholder="e.g., It's in Paris"
+                    maxLength={200}
+                  />
+                </div>
+
+                {/* Auto-calculated fields */}
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-400">Location Type (auto):</span>{' '}
+                    <span className="text-white capitalize">{get_location_type(editData.category)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Difficulty (auto):</span>{' '}
+                    <span className="text-white capitalize">{get_difficulty(editData.time_limit)}</span>
+                  </div>
+                </div>
+
+                {/* Map */}
+                <div>
+                  <label className="text-sm font-medium mb-1 block text-gray-300">Click on map to set location</label>
+                  <div className="h-[250px] w-full overflow-hidden rounded-lg border border-border">
+                    <MapContainer
+                      center={editMapCenter}
+                      zoom={5}
+                      className="h-full w-full"
+                      style={{ height: '100%', width: '100%', zIndex: 0 }}
+                      zoomControl={true}
+                      scrollWheelZoom={true}
+                      dragging={true}
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                      />
+                      <MapClickHandler onClick={handleEditMapClick} />
+                      <Marker position={[parseFloat(editData.latitude) || editMapCenter[0], parseFloat(editData.longitude) || editMapCenter[1]]} icon={blueIcon} key={`${editData.latitude}-${editData.longitude}`} />
+                    </MapContainer>
+                  </div>
+                  {editData.latitude && editData.longitude && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Selected: {editData.latitude}, {editData.longitude}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="pt-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+                disabled={isProcessing}
+                className="text-white border-border hover:bg-[#262626] h-9"
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white h-9"
+                onClick={handleEditSubmit}
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Question Dialog */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="max-w-3xl bg-[#1a1a1a] text-white border-border">
+            <DialogHeader>
+              <DialogTitle className="text-white">Create New Question</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Add a new question to the database
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 py-4">
+              {/* Question Text */}
+              <div>
+                <label className="text-sm font-medium mb-1 block text-gray-300">Question Text</label>
+                <input
+                  type="text"
+                  value={createData.text}
+                  onChange={(e) => setCreateData((prev) => ({ ...prev, text: e.target.value }))}
+                  className="w-full px-3 py-2 bg-[#262626] text-white border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="e.g., Where is the Eiffel Tower?"
+                  maxLength={500}
+                />
+              </div>
+
+              {/* Category and Time Limit */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block text-gray-300">Category</label>
                   <Select
-                    value={editData.category}
+                    value={createData.category}
                     onValueChange={(value) =>
-                      setEditData((prev) => ({ ...prev, category: value }))
+                      setCreateData((prev) => ({ ...prev, category: value }))
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-[#262626] text-white border-border h-9">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="edit-dialog-select-content text-white">
                       <SelectItem value="Countries">Countries</SelectItem>
                       <SelectItem value="Cities">Cities</SelectItem>
                       <SelectItem value="Landmarks">Landmarks</SelectItem>
@@ -812,30 +1089,119 @@ export default function AdminPage() {
                   </Select>
                 </div>
 
-                {/* Map preview - same design as SuggestPage */}
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Location Preview</label>
-                  <div className="h-[300px] w-full overflow-hidden rounded-lg border border-border">
-                    <ReadOnlyMap lat={selectedQuestion.latitude} lon={selectedQuestion.longitude} />
-                  </div>
+                  <label className="text-sm font-medium mb-1 block text-gray-300">Time Limit</label>
+                  <Select
+                    value={createData.time_limit.toString()}
+                    onValueChange={(value) =>
+                      setCreateData((prev) => ({ ...prev, time_limit: parseInt(value) }))
+                    }
+                  >
+                    <SelectTrigger className="bg-[#262626] text-white border-border h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="edit-dialog-select-content text-white">
+                      <SelectItem value="30">30 sec (Hard)</SelectItem>
+                      <SelectItem value="45">45 sec (Medium)</SelectItem>
+                      <SelectItem value="60">60 sec (Easy)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            )}
 
-            <DialogFooter>
+              {/* Coordinates */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block text-gray-300">Latitude</label>
+                  <input
+                    type="text"
+                    value={createData.latitude}
+                    onChange={(e) => setCreateData((prev) => ({ ...prev, latitude: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#262626] text-white border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring h-9"
+                    placeholder="51.505"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block text-gray-300">Longitude</label>
+                  <input
+                    type="text"
+                    value={createData.longitude}
+                    onChange={(e) => setCreateData((prev) => ({ ...prev, longitude: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#262626] text-white border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring h-9"
+                    placeholder="-0.09"
+                  />
+                </div>
+              </div>
+
+              {/* Hint */}
+              <div>
+                <label className="text-sm font-medium mb-1 block text-gray-300">Hint (optional)</label>
+                <input
+                  type="text"
+                  value={createData.hint}
+                  onChange={(e) => setCreateData((prev) => ({ ...prev, hint: e.target.value }))}
+                  className="w-full px-3 py-2 bg-[#262626] text-white border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring h-9"
+                  placeholder="e.g., It's in Paris"
+                  maxLength={200}
+                />
+              </div>
+
+              {/* Auto-calculated fields */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-400">Location Type (auto):</span>{' '}
+                  <span className="text-white capitalize">{get_location_type(createData.category)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Difficulty (auto):</span>{' '}
+                  <span className="text-white capitalize">{get_difficulty(createData.time_limit)}</span>
+                </div>
+              </div>
+
+              {/* Map */}
+              <div>
+                <label className="text-sm font-medium mb-1 block text-gray-300">Click on map to set location</label>
+                <div className="h-[250px] w-full overflow-hidden rounded-lg border border-border">
+                  <MapContainer
+                    center={mapCenter}
+                    zoom={5}
+                    className="h-full w-full"
+                    style={{ height: '100%', width: '100%', zIndex: 0 }}
+                    zoomControl={true}
+                    scrollWheelZoom={true}
+                    dragging={true}
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    />
+                    <MapClickHandler onClick={handleMapClick} />
+                    <Marker position={[parseFloat(createData.latitude) || mapCenter[0], parseFloat(createData.longitude) || mapCenter[1]]} icon={blueIcon} key={`${createData.latitude}-${createData.longitude}`} />
+                  </MapContainer>
+                </div>
+                {createData.latitude && createData.longitude && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Selected: {createData.latitude}, {createData.longitude}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="pt-3">
               <Button
                 variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
+                onClick={() => setIsCreateDialogOpen(false)}
                 disabled={isProcessing}
+                className="text-white border-border hover:bg-[#262626] h-9"
               >
                 Cancel
               </Button>
               <Button
-                className="bg-blue-600 hover:bg-blue-700"
-                onClick={handleEditSubmit}
+                className="bg-green-600 hover:bg-green-700 text-white h-9"
+                onClick={handleCreateSubmit}
                 disabled={isProcessing}
               >
-                {isProcessing ? 'Saving...' : 'Save Changes'}
+                {isProcessing ? 'Creating...' : 'Create Question'}
               </Button>
             </DialogFooter>
           </DialogContent>

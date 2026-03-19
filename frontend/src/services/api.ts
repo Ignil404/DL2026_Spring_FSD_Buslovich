@@ -212,9 +212,13 @@ export const getAllQuestions = async () => {
 export const updateQuestion = async (
   questionId: number,
   data: {
-    difficulty: string;
-    location_type: string;
-    time_limit: number;
+    text?: string;
+    latitude?: number;
+    longitude?: number;
+    hint?: string;
+    difficulty?: string;
+    location_type?: string;
+    time_limit?: number;
     category?: string;
   }
 ) => {
@@ -227,6 +231,21 @@ export const updateQuestion = async (
  */
 export const deleteQuestion = async (questionId: number) => {
   const response = await apiClient.delete(`/admin/questions/${questionId}`);
+  return response.data;
+};
+
+/**
+ * Admin: Create a new question
+ */
+export const createQuestion = async (data: {
+  text: string;
+  latitude: number;
+  longitude: number;
+  hint?: string;
+  category?: string;
+  time_limit: number;
+}) => {
+  const response = await apiClient.post('/admin/questions', data);
   return response.data;
 };
 
