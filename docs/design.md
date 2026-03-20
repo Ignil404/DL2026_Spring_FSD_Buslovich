@@ -722,4 +722,138 @@ def new_endpoint(
 
 ---
 
+## 1.13. Панель администратора
+
+### Назначение
+
+Панель администратора предоставляет интерфейс для управления вопросами в базе данных: создание, редактирование, удаление.
+
+**Доступ**: `/admin?token=admin2026` (токен задаётся в коде `AdminPage.tsx`)
+
+### Функциональность
+
+#### Список вопросов
+- Отображение всех вопросов с фильтрацией по категориям
+- Карточка вопроса с картой-просмотром (read-only)
+- Кнопки "Edit" и "Delete" для каждого вопроса
+
+#### Создание вопроса
+**Файл**: `src/pages/AdminPage.tsx:196-233`
+
+Диалог создания содержит:
+- Поле ввода текста вопроса (`text`)
+- Выпадающий список категории (`Countries`, `Cities`, `Landmarks`, `Capitals`)
+- Выпадающий список лимита времени (30/45/60 сек)
+- Поля для координат (lat/lon) с возможностью клика на карте
+- Поле для подсказки (`hint`, опционально)
+- Интерактивная карта для выбора координат
+
+**Авто-расчёт полей**:
+```typescript
+// difficulty из time_limit
+const get_difficulty = (time_limit: number): string => {
+  if (time_limit <= 30) return 'hard';
+  if (time_limit <= 45) return 'medium';
+  return 'easy';
+};
+
+// location_type из category
+const get_location_type = (category: string): string => {
+  const categoryLower = category.toLowerCase();
+  if (categoryLower === 'countries') return 'country';
+  if (categoryLower === 'cities' || categoryLower === 'capitals') return 'city';
+  if (categoryLower === 'landmarks') return 'landmark';
+  return 'landmark';
+};
+```
+
+#### Редактирование вопроса
+**Файл**: `src/pages/AdminPage.tsx:365-404`
+
+Диалог редактирования позволяет изменить:
+- Текст вопроса
+- Координаты (с кликом на карте для обновления)
+- Категорию
+- Лимит времени
+- Подсказку
+
+Поля `difficulty` и `location_type` пересчитываются автоматически при изменении `time_limit` и `category`.
+
+### API Endpoints
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/api/v1/admin/questions` | Получить все вопросы с координатами |
+| `POST` | `/api/v1/admin/questions` | Создать новый вопрос |
+| `PUT` | `/api/v1/admin/questions/{id}` | Обновить существующий вопрос |
+| `DELETE` | `/api/v1/admin/questions/{id}` | Удалить вопрос |
+
+**Реализация**: `src/api/routes.py:650-830`
+
+### Схемы данных
+
+**QuestionCreateSchema** (создание):
+```python
+class QuestionCreateSchema(BaseModel):
+    text: str                    # Текст вопроса
+    latitude: float              # Широта (-90..90)
+    longitude: float             # Долгота (-180..180)
+    hint: str | None             # Подсказка
+    time_limit: int              # 30, 45 или 60 сек
+    category: str                # Категория определяет location_type
+```
+
+**QuestionUpdateSchema** (обновление):
+```python
+class QuestionUpdateSchema(BaseModel):
+    text: str | None             # Текст вопроса
+    latitude: float | None       # Широта
+    longitude: float | None      # Долгота
+    difficulty: str | None         # easy/medium/hard (можно переопределить)
+    location_type: str | None      # country/city/landmark (можно переопределить)
+    time_limit: int | None       # 30/45/60
+    category: str | None         # Категория
+    hint: str | None             # Подсказка
+```
+
+### Архитектурные решения
+
+#### Auto-calculation vs Explicit Input
+**Решение**: Автоматический расчёт `difficulty` и `location_type` на основе других полей.
+
+**Обоснование**:
+- Снижает когнитивную нагрузку (меньше полей для заполнения)
+- Гарантирует консистентность данных (time_limit=30 всегда hard)
+- Возможность ручного переопределения при необходимости
+
+**Реализация в бэкенде**:
+```python
+# src/api/routes.py:681-687
+if create_data.time_limit <= 30:
+    difficulty = 'hard'
+elif create_data.time_limit <= 45:
+    difficulty = 'medium'
+else:
+    difficulty = 'easy'
+```
+
+#### Map Interaction Pattern
+**Решение**: Клик на карте обновляет координатные поля в реальном времени.
+
+**Файл**: `src/pages/AdminPage.tsx:235-244`
+```typescript
+const handleMapClick = (e: L.LeafletMouseEvent) => {
+  const lat = e.latlng.lat;
+  const lng = e.latlng.lng;
+  setMapCenter([lat, lng]);
+  setCreateData((prev) => ({
+    ...prev,
+    latitude: lat.toFixed(6),
+    longitude: lng.toFixed(6),
+  }));
+};
+```
+
+---
+
 **Конец документа**
