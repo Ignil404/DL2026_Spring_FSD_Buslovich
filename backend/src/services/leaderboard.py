@@ -177,7 +177,8 @@ class LeaderboardService:
             Rank (1-based)
         """
         stmt = select(LeaderboardEntry).where(
-            LeaderboardEntry.total_score > entry.total_score
+            LeaderboardEntry.mode == entry.mode,
+            LeaderboardEntry.total_score > entry.total_score,
         )
         higher_scores = len(self.db.execute(stmt).scalars().all())
         return higher_scores + 1

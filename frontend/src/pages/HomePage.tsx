@@ -69,6 +69,7 @@ const CATEGORY_OPTIONS: CategoryOption[] = [
   { id: 'countries', icon: '🌍', title: 'Countries' },
   { id: 'cities', icon: '🏙️', title: 'Cities' },
   { id: 'capitals', icon: '🗽', title: 'Capitals' },
+  { id: 'landmarks', icon: '🏛️', title: 'Landmarks' },
 ];
 
 // Full color configuration for each mode
