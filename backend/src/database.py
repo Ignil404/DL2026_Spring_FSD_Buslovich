@@ -34,9 +34,6 @@ SessionLocal = sessionmaker(
 # Base class for models
 Base = declarative_base()
 
-if __name__ == "__main__":
-    sys.modules["src.database"] = sys.modules["__main__"]
-
 
 def get_db() -> Generator[Session, None, None]:
     """Dependency injection for database session.
@@ -57,9 +54,22 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    """Create all database tables."""
+    """Create all database tables.
+
+    Imports all models first to ensure they are registered with Base.
+    """
+    # Import all models to ensure they are registered with Base
+    from src.logger import get_logger
+    from src.models.answer import Answer  # noqa: F401
+    from src.models.leaderboard import LeaderboardEntry  # noqa: F401
+    from src.models.question import Question  # noqa: F401
+    from src.models.round import Round  # noqa: F401
+    from src.models.suggested_question import SuggestedQuestion  # noqa: F401
+
+    logger = get_logger(__name__)
 
     Base.metadata.create_all(bind=engine)
+    logger.info("database_initialized")
 
 
 def reset_db() -> None:
@@ -70,7 +80,14 @@ def reset_db() -> None:
 
 
 if __name__ == "__main__":
-    init_db()
+    sys.modules["src.database"] = sys.modules["__main__"]
+    from src.logger import get_logger
     from src.seed_data import seed_questions
 
+    logger = get_logger(__name__)
+
+    logger.info("initializing_database")
+    init_db()
+    logger.info("database_initialized")
     seed_questions()
+    logger.info("database_seed_complete")

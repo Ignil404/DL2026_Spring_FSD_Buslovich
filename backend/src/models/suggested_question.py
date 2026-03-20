@@ -1,5 +1,5 @@
 """SuggestedQuestion model for user-submitted questions."""
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, Float, Integer, String
 
@@ -19,4 +19,4 @@ class SuggestedQuestion(Base):
     hint = Column(String(200), nullable=True)
     category = Column(String(50), nullable=True)
     status = Column(String(20), default="pending")
-    submitted_at = Column(DateTime, default=datetime.utcnow)
+    submitted_at = Column(DateTime, default=lambda: datetime.now(UTC))

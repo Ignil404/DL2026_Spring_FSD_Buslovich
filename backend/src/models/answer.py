@@ -1,5 +1,5 @@
 """Answer model for user responses."""
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
@@ -27,7 +27,7 @@ class Answer(Base):
     base_points = Column(Integer, nullable=False)
     speed_multiplier = Column(Float, nullable=False)
     final_score = Column(Integer, nullable=False)
-    answered_at = Column(DateTime, default=datetime.utcnow)
+    answered_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     round = relationship("Round", back_populates="answers")

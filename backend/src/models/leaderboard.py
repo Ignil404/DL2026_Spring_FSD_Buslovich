@@ -1,5 +1,5 @@
 """Leaderboard model for high scores."""
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship, validates
@@ -28,7 +28,7 @@ class LeaderboardEntry(Base):
     mode = Column(String(20), default="standard", nullable=False, index=True)
     submitted_at = Column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
         index=True,  # Index for time-based queries
     )
 

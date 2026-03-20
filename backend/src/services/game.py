@@ -252,11 +252,13 @@ class GameService:
         """
         logger.info("Getting random question", category=category, exclude_ids=exclude_ids)
         
+        from sqlalchemy import func
+
         query = select(Question)
         if exclude_ids:
             query = query.where(~Question.id.in_(exclude_ids))
         if category:
-            query = query.where(Question.category == category)
+            query = query.where(func.lower(Question.category) == category.lower())
 
         questions = self.db.execute(query).scalars().all()
         

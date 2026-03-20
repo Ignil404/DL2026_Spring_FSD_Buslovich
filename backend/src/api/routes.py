@@ -16,15 +16,15 @@ from src.api.schemas import (
     LeaderboardResponse,
     QuestionAdminResponse,
     QuestionApprovalSchema,
+    QuestionCreateSchema,
     QuestionResponse,
+    QuestionUpdateSchema,
     RoundResponse,
     RoundSummary,
     ScoreSubmitRequest,
     ScoreSubmitResponse,
     SuggestedQuestionRequest,
     SuggestedQuestionResponse,
-    QuestionUpdateSchema,
-    QuestionCreateSchema,
 )
 from src.database import get_db
 from src.logger import get_logger
@@ -721,7 +721,8 @@ def update_question(
 
     Args:
         question_id: ID of the question to update
-        update_data: New values for text, coordinates, time_limit, category, hint (difficulty and location_type auto-calculated)
+        update_data: New values for text, coordinates, time_limit, category, hint
+            (difficulty and location_type auto-calculated)
         db: Database session (injected)
 
     Returns:

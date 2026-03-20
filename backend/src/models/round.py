@@ -1,6 +1,6 @@
 """Round model for game sessions."""
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship, validates
@@ -20,7 +20,7 @@ class Round(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     player_name = Column(String(20), nullable=False)
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, default=lambda: datetime.now(UTC))
     completed_at = Column(DateTime, nullable=True)
     total_score = Column(Integer, default=0)
     is_complete = Column(Boolean, default=False)
@@ -35,7 +35,7 @@ class Round(Base):
     def validate_player_name(self, key, value):
         """Validate player name using centralized validator."""
         from src.utils.validators import validate_player_name
-        
+
         is_valid, error = validate_player_name(value)
         if not is_valid:
             raise ValueError(error)
@@ -51,7 +51,7 @@ class Round(Base):
         is_standard_mode = self.mode == "standard" or self.mode is None
         if is_standard_mode and len(self.answers) >= 10:
             self.is_complete = True
-            self.completed_at = datetime.utcnow()
+            self.completed_at = datetime.now(UTC)
 
     def to_dict(self):
         """Convert to dictionary for API responses."""

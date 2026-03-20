@@ -212,14 +212,21 @@ export default function AdminPage() {
       return;
     }
 
+    const lat = parseFloat(createData.latitude);
+    const lon = parseFloat(createData.longitude);
+    if (isNaN(lat) || isNaN(lon)) {
+      setError('Invalid coordinates - must be valid numbers');
+      return;
+    }
+
     setIsProcessing(true);
     try {
       await createQuestion({
         text: createData.text,
-        latitude: parseFloat(createData.latitude),
-        longitude: parseFloat(createData.longitude),
+        latitude: lat,
+        longitude: lon,
         hint: createData.hint || undefined,
-        category: createData.category,
+        category: createData.category.toLowerCase(),
         time_limit: createData.time_limit,
       });
       setIsCreateDialogOpen(false);
@@ -382,14 +389,21 @@ export default function AdminPage() {
       return;
     }
 
+    const lat = parseFloat(editData.latitude);
+    const lon = parseFloat(editData.longitude);
+    if (isNaN(lat) || isNaN(lon)) {
+      setError('Invalid coordinates - must be valid numbers');
+      return;
+    }
+
     setIsProcessing(true);
     try {
       await updateQuestion(selectedQuestion.id, {
         text: editData.text,
-        latitude: parseFloat(editData.latitude),
-        longitude: parseFloat(editData.longitude),
+        latitude: lat,
+        longitude: lon,
         hint: editData.hint || undefined,
-        category: editData.category,
+        category: editData.category.toLowerCase(),
         time_limit: editData.time_limit,
       });
       setIsEditDialogOpen(false);
