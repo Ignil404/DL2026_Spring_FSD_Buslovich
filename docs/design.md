@@ -1,169 +1,144 @@
 # Техническое проектирование: Географический квиз
 
-**Версия**: 1.0.0  
-**Дата**: 2026-03-15  
+**Версия**: 2.0.0
+**Дата**: 2026-03-21
 **Статус**: Реализовано
 
 ---
 
 ## 1.1. Пользовательские сценарии
 
-### Сценарий 1: Начало игры
-**Как игрок**, я хочу ввести своё имя и начать раунд, **чтобы** получить доступ к вопросам и начать соревнование.
+### Сценарий 1: Начало игры с выбором режима
+
+**Как игрок**, я хочу ввести своё имя, выбрать игровой режим и категорию вопросов, **чтобы** играть в комфортном для меня формате.
 
 **Поток**:
 1. Игрок открывает главную страницу (`/`)
-2. Вводит имя (2-20 символов, только буквы/цифры)
-3. Нажимает "Start Quiz"
-4. Система создаёт раунд с `round_id` (UUID)
-5. Игрок перенаправляется на страницу игры (`/game`)
-
-**Техническая реализация**:
-```typescript
-// frontend/src/pages/HomePage.tsx
-const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  sessionStorage.setItem('playerName', playerName.trim());
-  navigate('/game');  // GamePage создаст раунд через API
-};
-```
+2. Вводит имя (2–20 символов, поддерживается кириллица)
+3. Выбирает режим: Classic / Sprint / Race / Marathon / Endless
+4. Опционально выбирает категорию: Countries / Cities / Landmarks / Capitals
+5. Нажимает "Start Game"
+6. Система создаёт раунд с `round_id` (UUID), сохраняет режим и категорию
+7. Игрок переходит на страницу игры (`/game`)
 
 ---
 
 ### Сценарий 2: Ответ на вопрос
+
 **Как игрок**, я хочу кликнуть на карту в предполагаемое место, **чтобы** получить очки за точность и скорость ответа.
 
 **Поток**:
-1. Игрок видит вопрос с типом локации (страна/город/достопримечательность)
-2. Таймер отсчитывает время (30/45/60 сек в зависимости от сложности)
-3. Игрок кликает на карту
-4. Система рассчитывает расстояние (формула Haversine) и очки
-5. Показывается обратная связь с правильным ответом
-
-**Техническая реализация**:
-```typescript
-// frontend/src/components/Map.tsx
-const handleLocationClick = (lat: number, lon: number) => {
-  if (typeof lat === 'number' && typeof lon === 'number' &&
-      !isNaN(lat) && !isNaN(lon)) {
-    setSelectedLocation({ lat, lon });
-  }
-};
-
-// Отправка ответа
-submitAnswerClick(selectedLocation.lat, selectedLocation.lon, 0);
-```
+1. Игрок видит вопрос с типом локации и подсказкой
+2. В Classic режиме — таймер отсчитывает время на вопрос (30/45/60 сек)
+3. В Timed режимах — отображается глобальный таймер (1/3/5 мин)
+4. Игрок кликает на карту, маркер устанавливается
+5. Нажимает "Submit Answer"
+6. Система рассчитывает расстояние (формула Haversine) и очки на бэкенде
+7. Показывается фидбек: расстояние, базовые очки, бонус скорости, итог
+8. На карте отображается линия от клика до правильного ответа
 
 ---
 
-### Сценарий 3: Таблица лидеров
-**Как игрок**, я хочу отправить свой результат в таблицу лидеров после завершения раунда, **чтобы** соревноваться с другими игроками.
+### Сценарий 3: Завершение раунда и лидерборд
+
+**Как игрок**, я хочу по завершении игры отправить результат в таблицу лидеров своего режима, **чтобы** соревноваться с другими игроками.
 
 **Поток**:
-1. Игрок ответил на 10 вопросов
-2. Показывается экран результатов с общим счётом
-3. Игрок нажимает "Submit Score"
-4. Система проверяет: раунд завершён, результат попадает в топ-10
-5. Игрок видит свой ранг и перенаправляется на `/leaderboard`
-
-**Техническая реализация**:
-```typescript
-// frontend/src/pages/GamePage.tsx
-const handleSubmitScore = async () => {
-  const result = await submitScore(gameState.round.id);
-  if (result.success) {
-    setTimeout(() => navigate('/leaderboard'), 1500);
-  }
-};
-```
+1. Classic: автоматически после 10 вопросов
+2. Timed: по истечении глобального таймера (вызов `POST /rounds/{id}/complete`)
+3. Endless: при нажатии "Finish Game"
+4. Показывается экран результатов с итоговым счётом
+5. Игрок нажимает "Submit Score" → счёт сохраняется в лидерборд режима
+6. Переход на `/leaderboard` с активным табом текущего режима
 
 ---
 
 ## 1.2. Функциональные требования
 
-### Обязательные (MVP)
+### Обязательные
 
 #### Бэкенд
 | ID | Требование | Реализация |
 |----|-----------|-----------|
-| FR-B001 | Создание раунда с именем игрока | `POST /api/v1/questions?player_name={name}` |
-| FR-B002 | Получение следующего вопроса | `GET /api/v1/questions?round_id={id}` |
-| FR-B003 | Приём ответа с координатами | `POST /api/v1/answers` |
-| FR-B004 | Расчёт расстояния (Haversine) | `src/services/scoring.py:haversine_distance()` |
-| FR-B005 | Расчёт очков (точность + скорость) | `src/services/scoring.py:TieredScoringStrategy` |
-| FR-B006 | Завершение раунда после 10 вопросов | `GameService.get_next_question()` |
-| FR-B007 | Отправка результата в таблицу лидеров | `POST /api/v1/leaderboard` |
-| FR-B008 | Получение топ-10 лидеров | `GET /api/v1/leaderboard` |
+| FR-B001 | Создание раунда с именем, режимом, категорией | `GET /api/v1/questions?player_name&mode&category` |
+| FR-B002 | Получение следующего вопроса без повторений | `GET /api/v1/questions?round_id` |
+| FR-B003 | Приём ответа с координатами, расчёт очков | `POST /api/v1/answers` |
+| FR-B004 | Расчёт расстояния (Haversine) | `src/services/scoring.py` |
+| FR-B005 | Расчёт очков (тиры + мультипликатор скорости) | `TieredScoringStrategy` |
+| FR-B006 | Явное завершение раунда для timed/endless | `POST /api/v1/rounds/{id}/complete` |
+| FR-B007 | Отправка результата в лидерборд режима | `POST /api/v1/leaderboard` |
+| FR-B008 | Получение топ-10 по режиму | `GET /api/v1/leaderboard?mode=` |
+| FR-B009 | Приём предложений вопросов от игроков | `POST /api/v1/questions/suggest` |
+| FR-B010 | Управление вопросами и предложениями | `/api/v1/admin/*` |
 
 #### Фронтенд
 | ID | Требование | Реализация |
 |----|-----------|-----------|
-| FR-F001 | Ввод имени игрока с валидацией | `HomePage.tsx`, 2-20 символов |
-| FR-F002 | Отображение интерактивной карты | `Map.tsx` + react-leaflet |
-| FR-F003 | Отображение вопроса с подсказкой | `QuestionCard.tsx` |
-| FR-F004 | Таймер с визуальной обратной связью | `Timer.tsx` (зелёный→жёлтый→красный) |
-| FR-F005 | Обратная связь после ответа | `Feedback.tsx` (расстояние, очки) |
-| FR-F006 | Прогресс раунда (вопрос X из 10) | `GameHeader.tsx` |
-| FR-F007 | Экран результатов | `GamePage.tsx` (счёт, кнопки) |
-| FR-F008 | Таблица лидеров | `Leaderboard.tsx` + `LeaderboardPage.tsx` |
+| FR-F001 | Ввод имени + выбор режима + выбор категории | `HomePage.tsx` |
+| FR-F002 | Интерактивная карта с кликом | `GameMap.tsx` + react-leaflet |
+| FR-F003 | Вопрос с подсказкой и бейджами | `QuestionCard.tsx` |
+| FR-F004 | Таймер вопроса (Classic) / глобальный (Timed) | `Timer.tsx`, `GamePage.tsx` |
+| FR-F005 | Фидбек после ответа | `Feedback.tsx` |
+| FR-F006 | Хедер: вопрос X/10, счёт, имя игрока | `GameHeader.tsx` |
+| FR-F007 | Экран результатов с кнопкой Submit Score | `GamePage.tsx` |
+| FR-F008 | Лидерборд с табами по режимам | `LeaderboardPage.tsx` |
+| FR-F009 | Страница предложения вопроса с картой | `SuggestPage.tsx` |
+| FR-F010 | Админ-панель: CRUD вопросов, модерация | `AdminPage.tsx` |
 
 ### Опциональные
 
 | ID | Требование | Статус |
 |----|-----------|--------|
-| OPT-001 | Клавиатурная навигация (стрелки, Enter) | ✅ Реализовано в `Map.tsx` |
-| OPT-002 | Адаптивный дизайн (мобильные) | ✅ Media queries в компонентах |
-| OPT-003 | Скелетоны загрузки | ✅ `QuestionCardSkeleton.tsx`, `MapSkeleton.tsx` |
-| OPT-004 | Обработка ошибок с retry | ✅ `ErrorState.tsx`, `ErrorBoundary.tsx` |
+| OPT-001 | Клавиатурная навигация | ✅ Реализовано |
+| OPT-002 | Адаптивный дизайн (мобильные) | ✅ Tailwind breakpoints |
+| OPT-003 | Скелетоны загрузки | ✅ `QuestionCardSkeleton.tsx` |
+| OPT-004 | Error boundaries | ✅ `ErrorBoundary.tsx` |
+| OPT-005 | Структурированное логирование | ✅ structlog (консоль + JSON) |
+| OPT-006 | Тематические категории вопросов | ✅ 4 категории, 63 вопроса |
 
 ---
 
 ## 1.3. Проектирование API
 
-### Эндпоинты
-
 | Метод | Путь | Параметры | Описание |
 |-------|------|----------|----------|
-| `GET` | `/api/v1/questions` | `player_name` (str), `round_id` (str, опц.) | Начать раунд или получить следующий вопрос |
-| `POST` | `/api/v1/answers` | Тело: `AnswerRequest` | Отправить ответ |
-| `GET` | `/api/v1/rounds/{round_id}` | `round_id` (path) | Получить сводку раунда |
-| `GET` | `/api/v1/leaderboard` | — | Получить топ-10 |
-| `POST` | `/api/v1/leaderboard` | Тело: `ScoreSubmitRequest` | Отправить результат |
+| `GET` | `/api/v1/questions` | `player_name`, `round_id?`, `mode?`, `category?` | Начать раунд или следующий вопрос |
+| `POST` | `/api/v1/answers` | `AnswerRequest` | Отправить ответ |
+| `GET` | `/api/v1/rounds/{round_id}` | — | Итоги раунда |
+| `POST` | `/api/v1/rounds/{round_id}/complete` | — | Завершить раунд (timed/endless) |
+| `GET` | `/api/v1/leaderboard` | `mode?` | Топ-10 по режиму |
+| `POST` | `/api/v1/leaderboard` | `round_id` | Отправить счёт |
+| `GET` | `/api/v1/categories` | — | Список категорий |
+| `POST` | `/api/v1/questions/suggest` | `SuggestedQuestionRequest` | Предложить вопрос |
+| `GET` | `/api/v1/admin/questions` | — | Все вопросы (admin) |
+| `POST` | `/api/v1/admin/questions` | `QuestionCreateSchema` | Создать вопрос (admin) |
+| `PUT` | `/api/v1/admin/questions/{id}` | `QuestionUpdateSchema` | Обновить вопрос (admin) |
+| `DELETE` | `/api/v1/admin/questions/{id}` | — | Удалить вопрос (admin) |
+| `GET` | `/api/v1/admin/questions/suggestions` | — | Предложения на модерации |
+| `POST` | `/api/v1/admin/questions/approve/{id}` | — | Одобрить предложение |
+| `POST` | `/api/v1/admin/questions/reject/{id}` | — | Отклонить предложение |
 
-**Файл реализации**: `src/api/routes.py`
+**Значения mode**: `standard`, `timed_1`, `timed_3`, `timed_5`, `endless`
+**Значения category**: `countries`, `cities`, `landmarks`, `capitals`
 
----
+### Пример: POST /api/v1/answers
 
-### Пример запроса/ответа
-
-#### POST /api/v1/answers
-
-**Запрос**:
 ```json
+// Запрос
 {
   "round_id": "550e8400-e29b-41d4-a716-446655440000",
   "question_id": 42,
   "clicked_lat": 48.8566,
   "clicked_lon": 2.3522
 }
-```
 
-**Ответ (200 OK)**:
-```json
+// Ответ 200 OK
 {
   "question_id": 42,
   "question_text": "Where is France located?",
-  "correct": {
-    "latitude": 46.603354,
-    "longitude": 1.888334,
-    "location_name": "Where is France located?"
-  },
-  "your_answer": {
-    "latitude": 48.8566,
-    "longitude": 2.3522
-  },
+  "correct": { "latitude": 46.603354, "longitude": 1.888334 },
+  "your_answer": { "latitude": 48.8566, "longitude": 2.3522 },
   "distance_km": 394.2,
-  "time_taken": 30.0,
   "base_points": 500,
   "speed_multiplier": 0.72,
   "final_score": 360,
@@ -172,86 +147,76 @@ const handleSubmitScore = async () => {
 }
 ```
 
-**Схемы данных**: `src/api/schemas.py`
-
 ---
 
 ## 1.4. Модель данных
 
-### Question (Вопрос)
+### Question
 
-| Поле | Тип | Описание | Ограничения |
-|------|-----|----------|-------------|
-| `id` | Integer | Первичный ключ | Auto-increment |
-| `text` | String(500) | Текст вопроса | NOT NULL |
-| `location_type` | String(20) | Тип: country/city/landmark | ENUM |
-| `latitude` | Float | Широта | -90 до 90 |
-| `longitude` | Float | Долгота | -180 до 180 |
-| `difficulty` | String(20) | Сложность: easy/medium/hard | ENUM |
-| `hint` | String(200) | Подсказка | NULL |
-| `time_limit` | Integer | Лимит времени (сек) | 30/45/60 |
-| `created_at` | DateTime | Дата создания | Auto |
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | Integer PK | Автоинкремент |
+| `text` | String(500) | Текст вопроса |
+| `location_type` | String(20) | `country` / `city` / `landmark` |
+| `latitude` | Float | Широта правильного ответа |
+| `longitude` | Float | Долгота правильного ответа |
+| `difficulty` | String(20) | `easy` / `medium` / `hard` |
+| `hint` | String(200) | Подсказка (опционально) |
+| `time_limit` | Integer | 30 / 45 / 60 сек |
+| `category` | String(50) INDEX | `countries` / `cities` / `landmarks` / `capitals` |
 
-**Файл**: `src/models/question.py`
+### Round
 
----
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | String(36) UUID PK | Идентификатор раунда |
+| `player_name` | String(20) | Имя игрока |
+| `mode` | String(20) | `standard` / `timed_1` / `timed_3` / `timed_5` / `endless` |
+| `category` | String(50) | Фильтр категории (опционально) |
+| `started_at` | DateTime | Авто |
+| `completed_at` | DateTime | NULL до завершения |
+| `total_score` | Integer | Итоговый счёт |
+| `is_complete` | Boolean | Default: False |
 
-### Round (Раунд)
+### Answer
 
-| Поле | Тип | Описание | Ограничения |
-|------|-----|----------|-------------|
-| `id` | String(36) | Первичный ключ | UUID |
-| `player_name` | String(20) | Имя игрока | 2-20 символов |
-| `started_at` | DateTime | Начало раунда | Auto |
-| `completed_at` | DateTime | Завершение раунда | NULL |
-| `total_score` | Integer | Общий счёт | Default: 0 |
-| `is_complete` | Boolean | Завершён ли раунд | Default: False |
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | Integer PK | Автоинкремент |
+| `round_id` | String(36) FK INDEX | Ссылка на Round |
+| `question_id` | Integer FK | Ссылка на Question |
+| `clicked_lat` | Float | Координата клика |
+| `clicked_lon` | Float | Координата клика |
+| `distance_km` | Float | Расстояние до правильного ответа |
+| `time_taken` | Float | Время ответа в секундах |
+| `base_points` | Integer | Очки за точность |
+| `speed_multiplier` | Float | 0.0–1.0 |
+| `final_score` | Integer | base × multiplier |
 
-**Связи**:
-- One-to-many: `Round → Answer` (10 ответов)
-- One-to-one: `Round → LeaderboardEntry`
+### LeaderboardEntry
 
-**Файл**: `src/models/round.py`
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | Integer PK | Автоинкремент |
+| `round_id` | String(36) FK UNIQUE | Один раунд — одна запись |
+| `player_name` | String(20) | Имя игрока |
+| `total_score` | Integer INDEX | Счёт |
+| `mode` | String(20) INDEX | Режим игры |
+| `submitted_at` | DateTime INDEX | Авто |
 
----
+### SuggestedQuestion
 
-### Answer (Ответ)
-
-| Поле | Тип | Описание | Ограничения |
-|------|-----|----------|-------------|
-| `id` | Integer | Первичный ключ | Auto-increment |
-| `round_id` | String(36) | Внешний ключ на Round | INDEX |
-| `question_id` | Integer | Внешний ключ на Question | — |
-| `clicked_lat` | Float | Кликнутая широта | -90 до 90 |
-| `clicked_lon` | Float | Кликнутая долгота | -180 до 180 |
-| `distance_km` | Float | Расстояние (км) | ≥ 0 |
-| `time_taken` | Float | Время ответа (сек) | ≥ 0 |
-| `base_points` | Integer | Очки за точность | 0/100/250/500/1000 |
-| `speed_multiplier` | Float | Множитель скорости | 0.0–1.0 |
-| `final_score` | Integer | Итоговые очки | `base × multiplier` |
-| `answered_at` | DateTime | Время ответа | Auto |
-
-**Индексы**:
-- `idx_answers_round` на `round_id`
-
-**Файл**: `src/models/answer.py`
-
----
-
-### LeaderboardEntry (Запись в таблице лидеров)
-
-| Поле | Тип | Описание | Ограничения |
-|------|-----|----------|-------------|
-| `id` | Integer | Первичный ключ | Auto-increment |
-| `round_id` | String(36) | Внешний ключ на Round | UNIQUE |
-| `player_name` | String(20) | Имя игрока | 2-20 символов |
-| `total_score` | Integer | Счёт | INDEX (DESC) |
-| `submitted_at` | DateTime | Время отправки | INDEX, Auto |
-
-**Индексы**:
-- `idx_leaderboard_score` на `total_score` (для ORDER BY)
-
-**Файл**: `src/models/leaderboard.py`
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | Integer PK | Автоинкремент |
+| `player_name` | String(20) | Кто предложил |
+| `question_text` | String(500) | Текст вопроса |
+| `latitude` | Float | Координата |
+| `longitude` | Float | Координата |
+| `hint` | String(200) | Подсказка (опционально) |
+| `category` | String(50) | Категория |
+| `status` | String(20) | `pending` / `approved` / `rejected` |
+| `submitted_at` | DateTime | Авто |
 
 ---
 
@@ -259,244 +224,94 @@ const handleSubmitScore = async () => {
 
 ### Фронтенд
 
-| Компонент | Технология | Версия | Назначение |
-|-----------|-----------|--------|-----------|
-| Фреймворк | React | 18+ | UI компоненты |
-| Сборщик | Vite | 5.x | Dev server, build |
-| Язык | TypeScript | 5.x | Типизация |
-| Карта | react-leaflet | 4.2.1 | Интерактивная карта |
-| Движок карты | Leaflet | 1.9.4 | Рендеринг карты (бесплатно, без API ключа) |
-| Управление состоянием | TanStack Query | 5.x | Серверное состояние |
-| Роутинг | React Router | 6.x | Навигация |
-| HTTP клиент | Axios | 1.6.x | API запросы |
-
-**Файлы конфигурации**:
-- `frontend/package.json`
-- `frontend/tsconfig.json`
-- `frontend/vite.config.ts`
-
----
+| Компонент | Технология | Назначение |
+|-----------|-----------|-----------|
+| Фреймворк | React 18 + TypeScript | UI компоненты с типизацией |
+| Сборщик | Vite 5 | Dev server, быстрая сборка |
+| Карта | react-leaflet + Leaflet | Интерактивная карта (бесплатно, без API ключа) |
+| Стили | Tailwind CSS + shadcn/ui | Утилитарные классы + готовые компоненты |
+| Анимации | Framer Motion | Переходы и анимации |
+| Состояние | TanStack Query | Серверное состояние и кэширование |
+| Роутинг | React Router v6 | Навигация |
+| HTTP | Axios | API запросы |
 
 ### Бэкенд
 
-| Компонент | Технология | Версия | Назначение |
-|-----------|-----------|--------|-----------|
-| Фреймворк | FastAPI | 0.109+ | REST API |
-| Язык | Python | 3.12+ | Бизнес-логика |
-| ORM | SQLAlchemy | 2.0+ | Работа с БД |
-| База данных | SQLite | — | Хранение (файл `data.db`) |
-| Валидация | Pydantic | 2.5+ | Схемы запросов/ответов |
-| Логирование | structlog | 24.1+ | Структурированные логи |
-| ASGI сервер | Uvicorn | 0.27+ | Запуск приложения |
-
-**Файлы конфигурации**:
-- `backend/pyproject.toml`
-- `backend/ruff.toml` (линтер)
+| Компонент | Технология | Назначение |
+|-----------|-----------|-----------|
+| Фреймворк | FastAPI | REST API, автодокументация Swagger |
+| Язык | Python 3.12 | Бизнес-логика |
+| ORM | SQLAlchemy 2.0 | Работа с БД |
+| БД | SQLite | Файловая БД, не требует сервера |
+| Валидация | Pydantic v2 | Схемы запросов/ответов |
+| Логирование | structlog | Структурированные логи |
+| Сервер | Uvicorn | ASGI сервер |
 
 ---
 
 ## 1.6. Формула расчёта очков
 
-**Файл**: `src/services/scoring.py`
-
-### Базовые очки (точность)
-
 ```python
-if distance_km < 100:   # < 100 км
-    base_points = 1000
-elif distance_km < 500:  # < 500 км
-    base_points = 500
-elif distance_km < 1000: # < 1000 км
-    base_points = 250
-elif distance_km < 5000: # < 5000 км
-    base_points = 100
-else:
-    base_points = 0
-```
+# Базовые очки по дистанции (src/services/scoring.py)
+if distance_km < 100:    base_points = 1000
+elif distance_km < 500:  base_points = 500
+elif distance_km < 1000: base_points = 250
+elif distance_km < 5000: base_points = 100
+else:                    base_points = 0
 
-### Множитель скорости
-
-```python
-time_remaining = max(0, time_limit - time_taken)
-speed_multiplier = time_remaining / time_limit  # 0.0 – 1.0
-```
-
-### Итоговый счёт
-
-```python
+speed_multiplier = max(0, time_limit - time_taken) / time_limit
 final_score = round(base_points * speed_multiplier)
 ```
 
-### Пример расчёта
-
-| Параметр | Значение |
-|----------|----------|
-| Расстояние | 394 км |
-| Лимит времени | 45 сек |
-| Время ответа | 12.5 сек |
-| **Базовые очки** | **500** (< 500 км) |
-| **Множитель** | **0.72** ((45-12.5)/45) |
-| **Итог** | **360** (500 × 0.72) |
+Расчёт выполняется **на бэкенде** — исключает подделку через DevTools.
 
 ---
 
 ## 1.7. Архитектурные решения
 
-### 1. Отсутствие аутентификации
+### Идентификация без авторизации
+Игроки вводят имя без регистрации. Идентификация через имя + `round_id` (UUID) достаточна для лидерборда и упрощает UX.
 
-**Решение**: Игроки вводят имя без проверки, нет паролей/сессий.
+### sessionStorage для состояния игры
+Состояние игры (`round_id`, `mode`, `currentQuestion`) хранится в `sessionStorage` — сохраняется при перезагрузке вкладки, очищается при закрытии браузера.
 
-**Обоснование**:
-- Упрощает UX (нет регистрации)
-- Достаточно для локальной игры
-- `round_id` (UUID) предотвращает случайные коллизии
+### Явное завершение timed/endless раундов
+timed и endless режимы требуют явного вызова `POST /rounds/{id}/complete` перед отправкой в лидерборд. Это гарантирует корректный `is_complete=True`.
 
-**Реализация**:
-```python
-# src/utils/validators.py
-def validate_player_name(name: str) -> tuple[bool, str | None]:
-    # Только 2-20 символов, буквы/цифры/пробелы
-```
+### Принципы SOLID
 
----
-
-### 2. sessionStorage для состояния игры
-
-**Решение**: Состояние игры хранится в `sessionStorage` браузера.
-
-**Обоснование**:
-- Сохраняется в рамках вкладки (не между сессиями)
-- Не требует бэкенд-хранилища
-- Очищается при закрытии вкладки
-
-**Реализация**:
-```typescript
-// frontend/src/hooks/useGame.ts
-useEffect(() => {
-  sessionStorage.setItem('gameState', JSON.stringify(gameState));
-}, [gameState]);
-```
-
----
-
-### 3. Расстояние Haversine
-
-**Решение**: Используется формула Haversine для расчёта расстояния между точками на сфере.
-
-**Обоснование**:
-- Учитывает кривизну Земли
-- Точнее евклидова расстояния для географических координат
-- Вычислительно эффективно
-
-**Реализация**:
-```python
-# src/services/scoring.py
-def haversine_distance(lat1, lon1, lat2, lon2) -> float:
-    R = 6371.0  # Радиус Земли в км
-    lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
-    delta_lat = math.radians(lat2 - lat1)
-    delta_lon = math.radians(lon2 - lon1)
-    
-    a = (math.sin(delta_lat / 2) ** 2 +
-         math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2)
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    
-    return R * c
-```
-
----
-
-### 4. Применение принципов SOLID
-
-#### SRP (Single Responsibility Principle)
+**SRP** — каждый модуль имеет одну ответственность:
 
 | Файл | Ответственность |
 |------|----------------|
-| `src/database.py` | Только подключение/сессии БД |
-| `src/api/routes.py` | Только HTTP запросы/ответы |
-| `src/services/game.py` | Только поток игры (раунды, вопросы) |
-| `src/services/scoring.py` | Только расчёт очков |
-| `src/services/leaderboard.py` | Только таблица лидеров |
-| `src/utils/validators.py` | Только валидация |
+| `routes.py` | Только HTTP запросы/ответы |
+| `services/game.py` | Только игровой поток |
+| `services/scoring.py` | Только расчёт очков |
+| `services/leaderboard.py` | Только таблица лидеров |
+| `utils/validators.py` | Только валидация |
+| `logger.py` | Только конфигурация логирования |
 
-#### OCP (Open/Closed Principle)
-
+**OCP** — система очков расширяема через абстракцию:
 ```python
-# src/services/scoring.py
 class ScoringStrategy(ABC):
     @abstractmethod
     def calculate_score(...) -> ScoreResult: ...
 
 class TieredScoringStrategy(ScoringStrategy):
-    def calculate_score(...) -> ScoreResult:
-        # Реализация по умолчанию
+    def calculate_score(...) -> ScoreResult: ...
 ```
 
-Новые стратегии scoring добавляются без изменения существующего кода.
-
-#### DIP (Dependency Inversion Principle)
-
+**DIP** — зависимости через FastAPI `Depends()`:
 ```python
-# src/services/game.py
-class GameService:
-    def __init__(
-        self,
-        db: Session,
-        scoring_strategy: ScoringStrategy | None = None,
-    ):
-        self.scorer = scoring_strategy or default_scorer  # Абстракция
+def get_question(game_service: GameService = Depends(get_game_service), ...)
 ```
 
-#### DRY (Don't Repeat Yourself)
-
+**DRY** — централизованная валидация:
 ```python
 # src/utils/validators.py
-def validate_player_name(name: str) -> tuple[bool, str | None]:
-    # Единая валидация для всех мест
-
-def validate_coordinates(lat: float, lon: float) -> tuple[bool, str | None]:
-    # Единая валидация координат
+validate_player_name(name)
+validate_coordinates(lat, lon)
 ```
-
-#### KISS (Keep It Simple, Stupid)
-
-- Нет избыточных паттернов (no Repository, no CQRS)
-- Прямые SQLAlchemy запросы
-- Простая tier-based система очков
-- SQLite без сервера БД
-
----
-
-### 5. Структурированное логирование
-
-**Решение**: structlog с двойным выводом (консоль + файл JSON).
-
-**Конфигурация**:
-```python
-# src/logger.py
-def configure_logging(log_file: str = "logs/app.log"):
-    # Console: human-readable
-    console_handler.setFormatter(
-        structlog.dev.ConsoleRenderer()
-    )
-    # File: JSON для агрегации
-    json_handler.setFormatter(
-        structlog.processors.JSONRenderer()
-    )
-```
-
-**Пример использования**:
-```python
-# src/services/game.py
-log = logger.bind(player_name=player_name, round_id=round_obj.id)
-log.info("Starting new round")
-log.debug("Distance calculated", distance_km=distance)
-log.error("Invalid coordinates", error=error)
-```
-
-**Вывод**:
-- Консоль: `2026-03-15 10:30:00 [info] Starting new round [game]`
-- Файл: `{"event": "Starting new round", "level": "info", ...}`
 
 ---
 
@@ -507,130 +322,93 @@ geography-quiz/
 ├── backend/
 │   ├── src/
 │   │   ├── api/
-│   │   │   ├── __init__.py
-│   │   │   ├── routes.py          # HTTP эндпоинты
-│   │   │   └── schemas.py         # Pydantic схемы
+│   │   │   ├── routes.py
+│   │   │   └── schemas.py
 │   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   ├── question.py        # Question модель
-│   │   │   ├── round.py           # Round модель
-│   │   │   ├── answer.py          # Answer модель
-│   │   │   └── leaderboard.py     # LeaderboardEntry модель
+│   │   │   ├── question.py
+│   │   │   ├── round.py
+│   │   │   ├── answer.py
+│   │   │   ├── leaderboard.py
+│   │   │   └── suggested_question.py
 │   │   ├── services/
-│   │   │   ├── __init__.py
-│   │   │   ├── game.py            # GameService
-│   │   │   ├── scoring.py         # ScoringService + стратегии
-│   │   │   └── leaderboard.py     # LeaderboardService
+│   │   │   ├── game.py
+│   │   │   ├── scoring.py
+│   │   │   └── leaderboard.py
 │   │   ├── utils/
-│   │   │   ├── __init__.py
-│   │   │   └── validators.py      # Валидация
-│   │   ├── database.py            # БД подключение
-│   │   ├── logger.py              # Логирование
-│   │   └── main.py                # Точка входа
-│   ├── tests/
+│   │   │   └── validators.py
+│   │   ├── database.py
+│   │   ├── seed_data.py       # 63 вопроса по 4 категориям
+│   │   ├── logger.py
+│   │   └── main.py
+│   ├── logs/
 │   ├── pyproject.toml
 │   └── ruff.toml
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Map.tsx
+│   │   │   ├── GameMap.tsx
+│   │   │   ├── GameHeader.tsx
 │   │   │   ├── QuestionCard.tsx
 │   │   │   ├── Timer.tsx
 │   │   │   ├── Feedback.tsx
-│   │   │   ├── GameHeader.tsx
 │   │   │   ├── Leaderboard.tsx
-│   │   │   ├── ErrorState.tsx
-│   │   │   └── ErrorBoundary.tsx
+│   │   │   ├── ErrorBoundary.tsx
+│   │   │   └── ui/            # shadcn/ui компоненты
 │   │   ├── pages/
 │   │   │   ├── HomePage.tsx
 │   │   │   ├── GamePage.tsx
-│   │   │   └── LeaderboardPage.tsx
+│   │   │   ├── LeaderboardPage.tsx
+│   │   │   ├── SuggestPage.tsx
+│   │   │   └── AdminPage.tsx
 │   │   ├── hooks/
 │   │   │   └── useGame.ts
 │   │   ├── services/
 │   │   │   └── api.ts
-│   │   ├── types/
-│   │   │   └── index.ts
-│   │   └── App.tsx
+│   │   └── types/
+│   │       └── index.ts
 │   ├── package.json
 │   └── vite.config.ts
+├── docs/
+│   ├── design.md
+│   └── AI_REFLECTION.md
 ├── specs/
 │   └── 001-interactive-map-quiz/
-│       ├── spec.md
-│       ├── plan.md
-│       └── tasks.md
-└── docs/
-    └── design.md  # Этот документ
+└── README.md
 ```
 
 ---
 
 ## 1.9. Запуск проекта
 
-### Бэкенд
-
-```bash
-cd backend
-
-# Установка зависимостей
-uv pip install -e ".[dev]"
-
-# Инициализация БД (создание таблиц + seed вопросов)
-python -m src.database
-
-# Запуск сервера
-uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-**API Docs**: http://localhost:8000/docs
-
----
-
-### Фронтенд
-
-```bash
-cd frontend
-
-# Установка зависимостей
-npm install
-
-# Запуск dev-сервера
-npm run dev
-```
-
-**Приложение**: http://localhost:5173
-
----
-
-### Проверка качества
-
 ```bash
 # Бэкенд
 cd backend
-uv run ruff check src/      # Линтер
-uv run pyright              # Типы
+uv pip install -e ".[dev]"
+uv run python -m src.database
+uv run uvicorn src.main:app --reload
 
 # Фронтенд
 cd frontend
-npm run lint                # ESLint
-npx tsc --noEmit            # Типы
-npm run build               # Сборка
+npm install
+npm run dev
 ```
+
+- Приложение: `http://localhost:5173`
+- Swagger UI: `http://localhost:8000/docs`
+- Админ-панель: `http://localhost:5173/admin?token=admin2026`
 
 ---
 
 ## 1.10. Логи и мониторинг
 
-### Расположение логов
+Логи пишутся в два места одновременно через structlog (`src/logger.py`):
 
-- **Консоль**: stdout (человекочитаемый формат)
-- **Файл**: `backend/logs/app.log` (JSON)
-
-### Пример JSON лога
+- **Консоль**: человекочитаемый формат для разработки
+- **Файл**: `backend/logs/app.log` в JSON для агрегации
 
 ```json
 {
-  "event": "Answer submitted",
+  "event": "answer_submitted",
   "round_id": "550e8400-e29b-41d4-a716-446655440000",
   "question_id": 42,
   "distance_km": 394.2,
@@ -641,14 +419,12 @@ npm run build               # Сборка
 }
 ```
 
-### Уровни логирования
-
 | Уровень | Когда используется |
 |---------|-------------------|
-| `debug` | Детали расчётов (distance, score) |
-| `info` | Значимые события (start round, submit answer) |
-| `warning` | Проблемы (round not found, score too low) |
-| `error` | Ошибки (invalid coordinates, DB errors) |
+| `debug` | Детали расчётов (distance, score, seed) |
+| `info` | Значимые события (round_started, answer_submitted) |
+| `warning` | Проблемы (round_not_found, invalid_player_name) |
+| `error` | Ошибки (invalid_coordinates, db_error) |
 
 ---
 
@@ -658,13 +434,17 @@ npm run build               # Сборка
 
 ```python
 # src/utils/validators.py
-def validate_player_name(name: str):
-    # 2-20 символов, только буквы/цифры/пробелы
-    # Защита от XSS/инъекций
+def validate_player_name(name: str) -> tuple[bool, str | None]:
+    # 2-20 символов, Unicode (латиница, кириллица, цифры)
+    if not re.match(r'^[\w\s-]{2,20}$', name, re.UNICODE):
+        return False, "Player name must be 2-20 characters"
+    return True, None
 
-def validate_coordinates(lat: float, lon: float):
-    # Проверка диапазонов
-    # Защита от некорректных координат
+def validate_coordinates(lat: float, lon: float) -> tuple[bool, str | None]:
+    # Проверка диапазонов + защита от NaN/Infinity
+    if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+        return False, "Invalid coordinates"
+    return True, None
 ```
 
 ### CORS
@@ -673,185 +453,127 @@ def validate_coordinates(lat: float, lon: float):
 # src/main.py
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-    ],
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 ```
 
-### Ограничения
+### Ограничения текущей реализации
 
-- Нет rate limiting (можно добавить для production)
-- Нет аутентификации (имя игрока не проверяется)
-- SQLite не подходит для высокой нагрузки
+- Нет rate limiting (актуально для production)
+- Admin токен хранится в коде (`admin2026`) — для production нужен env variable
+- SQLite не подходит для высокой конкурентной нагрузки
 
 ---
 
 ## 1.12. Расширяемость
 
-### Добавление новой стратегии scoring
+### Новая стратегия подсчёта очков
+
+Благодаря OCP новая стратегия добавляется без изменения `GameService`:
 
 ```python
 # src/services/scoring.py
-class CustomScoringStrategy(ScoringStrategy):
-    def calculate_score(...) -> ScoreResult:
-        # Ваша логика
-        return ScoreResult(...)
+class BonusZoneScoringStrategy(ScoringStrategy):
+    """Стратегия с бонусом за попадание в столицу."""
+    def calculate_score(self, distance_km: float, time_taken: float,
+                        time_limit: int) -> ScoreResult:
+        base = 2000 if distance_km < 50 else 500
+        multiplier = max(0, time_limit - time_taken) / time_limit
+        return ScoreResult(base_points=base, speed_multiplier=multiplier,
+                           final_score=round(base * multiplier))
 
-# Использование в GameService
-game_service = GameService(db, scoring_strategy=CustomScoringStrategy())
+# Использование через DIP
+game_service = GameService(db, scoring_strategy=BonusZoneScoringStrategy())
 ```
 
-### Добавление нового эндпоинта
+### Новый эндпоинт
 
 ```python
 # src/api/routes.py
-@router.get("/new-endpoint", response_model=ResponseSchema)
-def new_endpoint(
-    param: str = Query(...),
+@router.get("/statistics", response_model=StatsResponse)
+def get_statistics(
     db: Session = Depends(get_db),
-    service: GameService = Depends(get_game_service),
+    game_service: GameService = Depends(get_game_service),
 ):
-    # Логика
-    return response
+    return game_service.get_statistics()
 ```
 
 ---
 
 ## 1.13. Панель администратора
 
-### Назначение
+**Доступ**: `http://localhost:5173/admin?token=admin2026`
 
-Панель администратора предоставляет интерфейс для управления вопросами в базе данных: создание, редактирование, удаление.
-
-**Доступ**: `/admin?token=admin2026` (токен задаётся в коде `AdminPage.tsx`)
+**Файл**: `src/pages/AdminPage.tsx`
 
 ### Функциональность
 
-#### Список вопросов
-- Отображение всех вопросов с фильтрацией по категориям
-- Карточка вопроса с картой-просмотром (read-only)
-- Кнопки "Edit" и "Delete" для каждого вопроса
+- Список всех вопросов с фильтрацией по категории
+- Карточка вопроса с картой (read-only просмотр координат)
+- Создание, редактирование, удаление вопросов
+- Просмотр и модерация предложенных вопросов (approve/reject)
 
-#### Создание вопроса
-**Файл**: `src/pages/AdminPage.tsx:196-233`
+### Авто-расчёт полей
 
-Диалог создания содержит:
-- Поле ввода текста вопроса (`text`)
-- Выпадающий список категории (`Countries`, `Cities`, `Landmarks`, `Capitals`)
-- Выпадающий список лимита времени (30/45/60 сек)
-- Поля для координат (lat/lon) с возможностью клика на карте
-- Поле для подсказки (`hint`, опционально)
-- Интерактивная карта для выбора координат
+При создании/редактировании вопроса `difficulty` и `location_type` рассчитываются автоматически, снижая когнитивную нагрузку на администратора:
 
-**Авто-расчёт полей**:
 ```typescript
-// difficulty из time_limit
-const get_difficulty = (time_limit: number): string => {
-  if (time_limit <= 30) return 'hard';
-  if (time_limit <= 45) return 'medium';
+// AdminPage.tsx
+const getDifficulty = (timeLimit: number): string => {
+  if (timeLimit <= 30) return 'hard';
+  if (timeLimit <= 45) return 'medium';
   return 'easy';
 };
 
-// location_type из category
-const get_location_type = (category: string): string => {
-  const categoryLower = category.toLowerCase();
-  if (categoryLower === 'countries') return 'country';
-  if (categoryLower === 'cities' || categoryLower === 'capitals') return 'city';
-  if (categoryLower === 'landmarks') return 'landmark';
+const getLocationType = (category: string): string => {
+  if (category === 'countries') return 'country';
+  if (category === 'cities' || category === 'capitals') return 'city';
   return 'landmark';
 };
 ```
 
-#### Редактирование вопроса
-**Файл**: `src/pages/AdminPage.tsx:365-404`
+```python
+# src/api/routes.py
+if create_data.time_limit <= 30:   difficulty = 'hard'
+elif create_data.time_limit <= 45: difficulty = 'medium'
+else:                              difficulty = 'easy'
+```
 
-Диалог редактирования позволяет изменить:
-- Текст вопроса
-- Координаты (с кликом на карте для обновления)
-- Категорию
-- Лимит времени
-- Подсказку
+### Клик на карте для выбора координат
 
-Поля `difficulty` и `location_type` пересчитываются автоматически при изменении `time_limit` и `category`.
-
-### API Endpoints
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/v1/admin/questions` | Получить все вопросы с координатами |
-| `POST` | `/api/v1/admin/questions` | Создать новый вопрос |
-| `PUT` | `/api/v1/admin/questions/{id}` | Обновить существующий вопрос |
-| `DELETE` | `/api/v1/admin/questions/{id}` | Удалить вопрос |
-
-**Реализация**: `src/api/routes.py:650-830`
+```typescript
+// AdminPage.tsx
+const handleMapClick = (e: L.LeafletMouseEvent) => {
+  setCreateData(prev => ({
+    ...prev,
+    latitude: e.latlng.lat.toFixed(6),
+    longitude: e.latlng.lng.toFixed(6),
+  }));
+};
+```
 
 ### Схемы данных
 
-**QuestionCreateSchema** (создание):
 ```python
 class QuestionCreateSchema(BaseModel):
-    text: str                    # Текст вопроса
-    latitude: float              # Широта (-90..90)
-    longitude: float             # Долгота (-180..180)
-    hint: str | None             # Подсказка
-    time_limit: int              # 30, 45 или 60 сек
-    category: str                # Категория определяет location_type
-```
+    text: str
+    latitude: float        # -90..90
+    longitude: float       # -180..180
+    hint: str | None
+    time_limit: int        # 30 / 45 / 60
+    category: str          # определяет location_type автоматически
 
-**QuestionUpdateSchema** (обновление):
-```python
 class QuestionUpdateSchema(BaseModel):
-    text: str | None             # Текст вопроса
-    latitude: float | None       # Широта
-    longitude: float | None      # Долгота
-    difficulty: str | None         # easy/medium/hard (можно переопределить)
-    location_type: str | None      # country/city/landmark (можно переопределить)
-    time_limit: int | None       # 30/45/60
-    category: str | None         # Категория
-    hint: str | None             # Подсказка
-```
-
-### Архитектурные решения
-
-#### Auto-calculation vs Explicit Input
-**Решение**: Автоматический расчёт `difficulty` и `location_type` на основе других полей.
-
-**Обоснование**:
-- Снижает когнитивную нагрузку (меньше полей для заполнения)
-- Гарантирует консистентность данных (time_limit=30 всегда hard)
-- Возможность ручного переопределения при необходимости
-
-**Реализация в бэкенде**:
-```python
-# src/api/routes.py:681-687
-if create_data.time_limit <= 30:
-    difficulty = 'hard'
-elif create_data.time_limit <= 45:
-    difficulty = 'medium'
-else:
-    difficulty = 'easy'
-```
-
-#### Map Interaction Pattern
-**Решение**: Клик на карте обновляет координатные поля в реальном времени.
-
-**Файл**: `src/pages/AdminPage.tsx:235-244`
-```typescript
-const handleMapClick = (e: L.LeafletMouseEvent) => {
-  const lat = e.latlng.lat;
-  const lng = e.latlng.lng;
-  setMapCenter([lat, lng]);
-  setCreateData((prev) => ({
-    ...prev,
-    latitude: lat.toFixed(6),
-    longitude: lng.toFixed(6),
-  }));
-};
+    text: str | None
+    latitude: float | None
+    longitude: float | None
+    time_limit: int | None
+    category: str | None
+    hint: str | None
+    # difficulty и location_type пересчитываются автоматически
 ```
 
 ---
