@@ -39,6 +39,7 @@ export default function GamePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
   const [globalTimeLeft, setGlobalTimeLeft] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
@@ -151,6 +152,84 @@ export default function GamePage() {
     submitAnswerClick(selectedPos.lat, selectedPos.lng, timeTaken);
   }, [selectedPos, gameState.currentAnswer, timeLeft, questionTimeLimit, submitAnswerClick]);
 
+  // Handle score submission
+  const handleSubmitScore = async () => {
+    setShowSubmitConfirm(true);
+  };
+
+  const handleConfirmSubmitScore = async () => {
+    if (!gameState.roundSummary || !gameState.round || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setSubmitMessage(null);
+    setShowSubmitConfirm(false);
+
+    try {
+      const result = await submitScore(gameState.round.id, gameState.mode);
+      if (result.success) {
+        setSubmitMessage(`🎉 ${result.message}`);
+        setTimeout(() => {
+          navigate('/leaderboard', { state: { mode: gameState.mode } });
+        }, 1500);
+      } else {
+        setSubmitMessage(`⚠️ ${result.message}`);
+      }
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to submit score.';
+      setSubmitMessage(`❌ ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Keyboard controls for all game modes
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent default behavior for Escape and Enter/Space
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+      }
+      
+      // Arrow keys - pan map (handled by map component)
+      // Enter/Space - confirm exit dialog, submit answer, go to next question, or confirm score submission
+      if (e.key === 'Enter' || e.key === ' ') {
+        if (showExitConfirm) {
+          // Confirm exit - finish game
+          setShowExitConfirm(false);
+          finishGame();
+        } else if (showSubmitConfirm) {
+          // Confirm score submission
+          handleConfirmSubmitScore();
+        } else if (gameState.isComplete && gameState.roundSummary && !showSubmitConfirm) {
+          // Auto-submit score on game complete screen
+          handleSubmitScore();
+        } else if (selectedPos && !gameState.currentAnswer && !isProcessingRef.current) {
+          // Submit answer
+          handleSubmit();
+        } else if (gameState.currentAnswer) {
+          // Go to next question
+          goToNextQuestion();
+        }
+      }
+      // Escape - close dialogs or show exit confirmation (all modes, all screens)
+      if (e.key === 'Escape') {
+        if (showSubmitConfirm) {
+          // Close submit dialog
+          setShowSubmitConfirm(false);
+        } else if (showExitConfirm) {
+          // Close exit dialog
+          setShowExitConfirm(false);
+        } else if (!gameState.isComplete) {
+          // Show exit confirmation (only if game is not complete)
+          setShowExitConfirm(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showSubmitConfirm, showExitConfirm, gameState.isComplete, gameState.roundSummary, selectedPos, gameState.currentAnswer, gameState.currentQuestion, handleSubmit, goToNextQuestion, handleConfirmSubmitScore, handleSubmitScore, finishGame, isEndlessMode]);
+
   // Reset processing flag when answer is received or question changes
   useEffect(() => {
     if (gameState.currentAnswer || gameState.currentQuestion) {
@@ -199,36 +278,6 @@ export default function GamePage() {
       }
     }
   }, [timeLeft]);
-
-  // Handle score submission
-  const handleSubmitScore = async () => {
-    setShowSubmitConfirm(true);
-  };
-
-  const handleConfirmSubmitScore = async () => {
-    if (!gameState.roundSummary || !gameState.round || isSubmitting) return;
-
-    setIsSubmitting(true);
-    setSubmitMessage(null);
-    setShowSubmitConfirm(false);
-
-    try {
-      const result = await submitScore(gameState.round.id, gameState.mode);
-      if (result.success) {
-        setSubmitMessage(`🎉 ${result.message}`);
-        setTimeout(() => {
-          navigate('/leaderboard', { state: { mode: gameState.mode } });
-        }, 1500);
-      } else {
-        setSubmitMessage(`⚠️ ${result.message}`);
-      }
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to submit score.';
-      setSubmitMessage(`❌ ${errorMessage}`);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const playerName = sessionStorage.getItem('playerName') || 'Player';
 
@@ -354,8 +403,15 @@ export default function GamePage() {
         </motion.div>
 
         {/* Score submission confirmation dialog */}
-        <Dialog open={showSubmitConfirm} onOpenChange={setShowSubmitConfirm}>
-          <DialogContent className="max-w-md bg-[#1a1a1a] text-white border-border">
+        <Dialog open={showSubmitConfirm} onOpenChange={(open) => {
+          if (!open) setShowSubmitConfirm(false);
+        }}>
+          <DialogContent
+            className="max-w-md bg-[#1a1a1a] text-white border-border"
+            onInteractOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+            style={{ zIndex: 9999 }}
+          >
             <DialogHeader>
               <DialogTitle className="text-white">Submit Score to Leaderboard?</DialogTitle>
               <DialogDescription className="text-gray-400">
@@ -442,10 +498,10 @@ export default function GamePage() {
         <div className="flex items-center gap-2">
           {isEndlessMode && (
             <Button
-              onClick={finishGame}
+              onClick={() => setShowExitConfirm(true)}
               variant="outline"
               size="sm"
-              className="mr-2"
+              className="mr-2 text-white hover:text-white"
             >
               Finish Game
             </Button>
@@ -552,7 +608,7 @@ export default function GamePage() {
                   onClick={goToNextQuestion}
                   className="w-full"
                 >
-                  {isEndlessMode ? "Next Question" : currentQuestionNumber >= 10 ? "See Results" : "Next Question"} ({currentQuestionNumber}/10)
+                  {isEndlessMode ? "Next Question" : currentQuestionNumber >= 10 ? "See Results" : "Next Question"}{!isEndlessMode && ` (${currentQuestionNumber}/10)`}
                 </Button>
               </Card>
             </motion.div>
@@ -661,6 +717,43 @@ export default function GamePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Exit confirmation dialog - MUST be inside main return, outside all conditionals */}
+        <Dialog open={showExitConfirm} onOpenChange={(open) => {
+          if (!open) setShowExitConfirm(false);
+        }}>
+          <DialogContent
+            className="max-w-md bg-[#1a1a1a] text-white border-border"
+            onInteractOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+            style={{ zIndex: 9999 }}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-white">Finish Game?</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                You will return to the main menu. Your current progress will be lost.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowExitConfirm(false)}
+                className="text-white border-border hover:bg-[#262626]"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowExitConfirm(false);
+                  finishGame();
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Finish Game
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

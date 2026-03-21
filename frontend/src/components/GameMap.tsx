@@ -65,12 +65,12 @@ const GameMap = ({ selectedPos, onSelect, answerPos }: Props) => {
   }, [answerPos, selectedPos]);
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full" style={{ zIndex: 0 }}>
       <MapContainer
         center={[20, 0]}
         zoom={2}
         className="h-full w-full"
-        style={{ height: '100%', width: '100%' }}
+        style={{ height: '100%', width: '100%', zIndex: 0 }}
         zoomControl={true}
         ref={mapRef}
       >
